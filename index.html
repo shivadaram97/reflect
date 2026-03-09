@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Reflect</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reflect">
+<meta name="theme-color" content="#080a0f">
+<style>
+:root{
+  --bg:#080a0f;
+  --surface:#0f1219;
+  --surface2:#161b26;
+  --border:#1e2535;
+  --border2:#252f42;
+  --accent:#c084fc;
+  --aglow:rgba(192,132,252,0.15);
+  --red:#f87171;
+  --rglow:rgba(248,113,113,0.15);
+  --green:#6ee7b7;
+  --gglow:rgba(110,231,183,0.12);
+  --gold:#fbbf24;
+  --text:#dde3f0;
+  --muted:#5a6480;
+  --muted2:#404866;
+  --serif:'Cormorant Garamond',serif;
+  --sans:'DM Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--sans);background:var(--bg);color:var(--text)}
+
+/* grain overlay */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:1000;opacity:0.4}
+
+.screen{display:none;height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;z-index:1;-webkit-overflow-scrolling:touch}
+.screen.active{display:block}
+
+/* ===== DOUBLE PIN SCREEN ===== */
+#pinScreen{background:var(--bg)}
+.pin-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px}
+.pin-logo{font-family:var(--serif);font-size:48px;font-weight:300;color:var(--text);text-align:center;margin-bottom:4px;letter-spacing:2px}
+.pin-sub{font-size:11px;color:var(--muted);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px}
+.pin-step{font-size:12px;color:var(--accent);text-align:center;letter-spacing:1px;margin-bottom:44px;opacity:0.8}
+.pin-dots{display:flex;gap:18px;margin-bottom:44px}
+.pdot{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--border2);transition:all .25s}
+.pdot.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 12px var(--aglow)}
+.pdot.on2{background:var(--green);border-color:var(--green);box-shadow:0 0 12px var(--gglow)}
+.pdot.err{background:var(--red);border-color:var(--red)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px}
+.nk{height:66px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--sans);font-size:22px;font-weight:400;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;user-select:none}
+.nk:active{background:var(--accent);border-color:var(--accent);transform:scale(0.93);color:#000}
+.nk.ghost{background:transparent;border-color:transparent;pointer-events:none}
+.nk.del{font-size:16px;color:var(--muted)}
+.pin-msg{font-size:12px;color:var(--red);text-align:center;margin-top:16px;height:16px;opacity:0;transition:opacity .3s}
+.pin-msg.show{opacity:1}
+.pin-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6;max-width:240px}
+
+/* ===== DASHBOARD ===== */
+.dash-top{padding:56px 22px 0}
+.dash-date{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.dash-title{font-family:var(--serif);font-size:38px;font-weight:300;color:var(--text);margin-bottom:6px;letter-spacing:1px}
+.dash-subtitle{font-size:12px;color:var(--muted);margin-bottom:28px;font-weight:300}
+
+/* stats row */
+.stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:0 22px 20px}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 12px;text-align:center}
+.scard .sl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.scard .sv{font-family:var(--serif);font-size:26px;font-weight:400}
+.sv.purple{color:var(--accent)}
+.sv.red{color:var(--red)}
+.sv.green{color:var(--green)}
+
+/* weekly summary */
+.week-card{margin:0 22px 20px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px}
+.week-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px}
+.week-bars{display:flex;align-items:flex-end;gap:6px;height:60px}
+.wbar{flex:1;border-radius:4px 4px 0 0;background:var(--border);position:relative;min-height:4px;transition:height .5s ease}
+.wbar.has-resist{background:linear-gradient(180deg,var(--accent),rgba(192,132,252,0.4))}
+.wbar.has-acted{background:linear-gradient(180deg,var(--red),rgba(248,113,113,0.4))}
+.wbar.has-mixed{background:linear-gradient(180deg,var(--accent) 50%,var(--red) 50%)}
+.week-labels{display:flex;gap:6px;margin-top:6px}
+.wlabel{flex:1;text-align:center;font-size:9px;color:var(--muted)}
+
+/* pending follow-ups */
+.pending-section{margin:0 22px 20px}
+.pending-title{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.pending-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.pending-item{background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer}
+.pi-trigger{font-size:13px;color:var(--text);margin-bottom:3px}
+.pi-time{font-size:11px;color:var(--muted)}
+
+/* action buttons */
+.dash-actions{display:flex;flex-direction:column;gap:10px;margin:0 22px 20px}
+.btn{width:100%;padding:16px;border:none;border-radius:13px;font-family:var(--sans);font-size:14px;font-weight:400;cursor:pointer;transition:all .2s;letter-spacing:0.3px}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:var(--accent);color:#000;letter-spacing:0.5px}
+.btn-outline{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-danger{background:rgba(248,113,113,0.08);color:var(--red);border:1px solid rgba(248,113,113,0.2)}
+
+/* recent entries */
+.recent-section{margin:0 22px 60px}
+.section-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:12px}
+.entry-item{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all .2s}
+.entry-item:active{opacity:0.7}
+.entry-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.entry-trigger{font-size:13px;color:var(--text);flex:1;margin-right:10px;line-height:1.4}
+.entry-badge{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:500;flex-shrink:0}
+.badge-resist{background:rgba(110,231,183,0.1);color:var(--green);border:1px solid rgba(110,231,183,0.2)}
+.badge-acted{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2)}
+.badge-pending{background:rgba(251,191,36,0.1);color:var(--gold);border:1px solid rgba(251,191,36,0.2)}
+.entry-bottom{display:flex;justify-content:space-between;align-items:center}
+.entry-meta{font-size:11px;color:var(--muted)}
+.entry-intensity{font-size:11px;color:var(--muted)}
+
+/* ===== LOG SCREEN ===== */
+.log-top{padding:52px 22px 0}
+.back-btn{display:flex;align-items:center;gap:8px;background:none;border:none;color:var(--muted);font-family:var(--sans);font-size:13px;cursor:pointer;padding:0;margin-bottom:20px}
+.back-btn svg{width:16px;height:16px}
+.log-title{font-family:var(--serif);font-size:32px;font-weight:300;color:var(--text);margin-bottom:6px;letter-spacing:1px}
+.log-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
+.log-body{padding:0 22px 60px}
+
+.field-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px}
+.field-block{margin-bottom:22px}
+
+/* trigger chips */
+.trigger-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:13px;cursor:pointer;transition:all .2s;user-select:none}
+.chip:active{transform:scale(0.95)}
+.chip.selected{border-color:var(--accent);color:var(--accent);background:rgba(192,132,252,0.08)}
+.custom-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text);font-family:var(--sans);font-size:13px;margin-top:8px;outline:none;transition:border .2s}
+.custom-input:focus{border-color:var(--accent)}
+.custom-input::placeholder{color:var(--muted)}
+textarea.custom-input{resize:none;min-height:80px;line-height:1.6}
+
+/* intensity slider */
+.intensity-row{display:flex;align-items:center;gap:14px}
+.intensity-slider{flex:1;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--border2);outline:none}
+.intensity-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 10px var(--aglow)}
+.intensity-val{font-family:var(--serif);font-size:28px;color:var(--accent);width:32px;text-align:center}
+
+/* action choice */
+.action-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.action-card{padding:16px;border-radius:14px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;text-align:center;transition:all .2s;user-select:none}
+.action-card:active{transform:scale(0.96)}
+.action-card.resist.selected{border-color:var(--green);background:rgba(110,231,183,0.07)}
+.action-card.acted.selected{border-color:var(--red);background:rgba(248,113,113,0.07)}
+.ac-icon{font-size:28px;margin-bottom:8px}
+.ac-label{font-size:13px;color:var(--text);margin-bottom:3px}
+.ac-sub{font-size:11px;color:var(--muted);line-height:1.4}
+
+/* ===== FOLLOW-UP SCREEN ===== */
+.outcome-chips{display:flex;flex-wrap:wrap;gap:8px}
+.outcome-chip{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:13px;cursor:pointer;transition:all .2s;user-select:none}
+.outcome-chip.selected{border-color:var(--red);color:var(--red);background:rgba(248,113,113,0.07)}
+
+.feeling-btns{display:flex;gap:8px}
+.feeling-btn{flex:1;padding:12px 8px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;text-align:center;transition:all .2s;user-select:none}
+.feeling-btn.worse.selected{border-color:var(--red);color:var(--red);background:rgba(248,113,113,0.07)}
+.feeling-btn.same.selected{border-color:var(--gold);color:var(--gold);background:rgba(251,191,36,0.07)}
+.feeling-btn.better.selected{border-color:var(--green);color:var(--green);background:rgba(110,231,183,0.07)}
+
+.hours-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text);font-family:var(--sans);font-size:22px;outline:none;text-align:center;transition:border .2s}
+.hours-input:focus{border-color:var(--red)}
+
+/* ===== INSIGHTS SCREEN ===== */
+.insights-body{padding:0 22px 60px}
+.ins-section{margin-bottom:28px}
+.ins-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px}
+
+/* cost counter */
+.cost-card{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.2);border-radius:16px;padding:20px;text-align:center;margin-bottom:20px}
+.cost-hours{font-family:var(--serif);font-size:52px;color:var(--red);line-height:1}
+.cost-label{font-size:12px;color:var(--muted);margin-top:6px}
+.cost-sub{font-size:11px;color:var(--muted);margin-top:4px;font-style:italic}
+
+/* trend chart */
+.trend-chart{display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:8px}
+.tbar{flex:1;border-radius:3px 3px 0 0;background:var(--border);min-height:3px;position:relative}
+.tbar .tb-resist{background:var(--accent);border-radius:3px 3px 0 0;width:100%}
+.tbar .tb-acted{background:var(--red);width:100%}
+.trend-labels{display:flex;gap:4px}
+.tlabel{flex:1;text-align:center;font-size:9px;color:var(--muted)}
+
+/* pattern card */
+.pattern-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px}
+.pattern-label{font-size:12px;color:var(--text);margin-bottom:4px}
+.pattern-val{font-size:11px;color:var(--muted)}
+.pattern-val span{color:var(--accent)}
+
+/* redirected to */
+.redirect-list{display:flex;flex-direction:column;gap:8px}
+.redirect-item{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.ri-label{font-size:13px;color:var(--text)}
+.ri-count{font-size:12px;color:var(--accent)}
+
+/* sunday review */
+.sunday-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border2);border-radius:16px;padding:20px;margin-bottom:20px}
+.sunday-title{font-family:var(--serif);font-size:20px;font-weight:300;color:var(--text);margin-bottom:6px}
+.sunday-sub{font-size:12px;color:var(--muted);margin-bottom:16px}
+.sunday-q{font-size:13px;color:var(--text);margin-bottom:8px}
+.sunday-past{font-size:13px;color:var(--muted);font-style:italic;line-height:1.6;border-left:2px solid var(--border2);padding-left:12px;margin-bottom:16px}
+
+/* delete zone */
+.danger-zone{margin:0 22px 60px;border-top:1px solid var(--border);padding-top:24px}
+.danger-title{font-size:10px;color:var(--red);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:12px}
+
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(8px)}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:24px 24px 0 0;padding:28px 22px 48px;width:100%;max-width:480px;transform:translateY(100%);transition:transform .35s cubic-bezier(0.32,0.72,0,1)}
+.modal-overlay.show .modal{transform:translateY(0)}
+.modal-handle{width:36px;height:3px;background:var(--border2);border-radius:2px;margin:0 auto 20px}
+.modal-title{font-family:var(--serif);font-size:24px;font-weight:300;margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+
+/* confirm modal */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(8px)}
+.confirm-overlay.show{opacity:1;pointer-events:all}
+.confirm-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:28px 22px;max-width:320px;width:100%;text-align:center}
+.confirm-title{font-family:var(--serif);font-size:22px;font-weight:300;margin-bottom:8px}
+.confirm-msg{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:24px}
+.confirm-btns{display:flex;gap:10px}
+.cbtn{flex:1;padding:14px;border:none;border-radius:12px;font-family:var(--sans);font-size:14px;cursor:pointer}
+.cbtn-cancel{background:var(--surface2);color:var(--muted)}
+.cbtn-confirm{background:var(--red);color:#fff}
+
+/* sunday modal */
+.sunday-modal{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:28px 22px;max-width:360px;width:100%;text-align:left}
+</style>
+</head>
+<body>
+
+<!-- ===== PIN SCREEN ===== -->
+<div class="screen active" id="pinScreen">
+  <div class="pin-wrap">
+    <div class="pin-logo">Reflect</div>
+    <div class="pin-sub">Private Journal</div>
+    <div class="pin-step" id="pinStep">Enter PIN</div>
+    <div class="pin-dots">
+      <div class="pdot" id="d0"></div><div class="pdot" id="d1"></div><div class="pdot" id="d2"></div>
+      <div class="pdot" id="d3"></div><div class="pdot" id="d4"></div><div class="pdot" id="d5"></div>
+    </div>
+    <div class="numpad">
+      <button class="nk" onclick="np('1')">1</button><button class="nk" onclick="np('2')">2</button><button class="nk" onclick="np('3')">3</button>
+      <button class="nk" onclick="np('4')">4</button><button class="nk" onclick="np('5')">5</button><button class="nk" onclick="np('6')">6</button>
+      <button class="nk" onclick="np('7')">7</button><button class="nk" onclick="np('8')">8</button><button class="nk" onclick="np('9')">9</button>
+      <button class="nk ghost"></button><button class="nk" onclick="np('0')">0</button><button class="nk del" onclick="nd()">⌫</button>
+    </div>
+    <div class="pin-msg" id="pinMsg"></div>
+    <div class="pin-hint" id="pinHint"></div>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div class="screen" id="dashboard">
+  <div class="dash-top">
+    <div class="dash-date" id="dashDate"></div>
+    <div class="dash-title">Reflect</div>
+    <div class="dash-subtitle">Your private space</div>
+  </div>
+
+  <div class="stat-row">
+    <div class="scard"><div class="sl">This Week</div><div class="sv purple" id="statWeek">0</div></div>
+    <div class="scard"><div class="sl">Resisted</div><div class="sv green" id="statResist">0</div></div>
+    <div class="scard"><div class="sl">Hours Lost</div><div class="sv red" id="statHours">0</div></div>
+  </div>
+
+  <div id="pendingSection" style="display:none">
+    <div class="pending-section">
+      <div class="pending-title"><div class="pending-dot"></div>Awaiting follow-up</div>
+      <div id="pendingList"></div>
+    </div>
+  </div>
+
+  <div class="dash-actions">
+    <button class="btn btn-primary" onclick="goTo('logScreen')">+ Log an urge</button>
+    <button class="btn btn-outline" onclick="goTo('insightsScreen')">Insights</button>
+  </div>
+
+  <div class="recent-section">
+    <div class="section-title">Recent</div>
+    <div id="recentList"></div>
+  </div>
+</div>
+
+<!-- ===== LOG SCREEN ===== -->
+<div class="screen" id="logScreen">
+  <div class="log-top">
+    <button class="back-btn" onclick="goTo('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>Back
+    </button>
+    <div class="log-title">Log urge</div>
+    <div class="log-sub" id="logTime"></div>
+  </div>
+  <div class="log-body">
+
+    <div class="field-block">
+      <div class="field-label">What triggered it?</div>
+      <div class="trigger-chips" id="triggerChips"></div>
+      <input class="custom-input" id="customTrigger" placeholder="Add your own trigger..." maxlength="100">
+    </div>
+
+    <div class="field-block">
+      <div class="field-label">Intensity (1–10)</div>
+      <div class="intensity-row">
+        <input type="range" min="1" max="10" value="5" class="intensity-slider" id="intensitySlider" oninput="updateIntensity()">
+        <div class="intensity-val" id="intensityVal">5</div>
+      </div>
+    </div>
+
+    <div class="field-block">
+      <div class="field-label">What did you do?</div>
+      <div class="action-cards">
+        <div class="action-card resist" id="cardResist" onclick="selectAction('resist')">
+          <div class="ac-icon">✊</div>
+          <div class="ac-label">Resisted</div>
+          <div class="ac-sub">Didn't act on it</div>
+        </div>
+        <div class="action-card acted" id="cardActed" onclick="selectAction('acted')">
+          <div class="ac-icon">⚡</div>
+          <div class="ac-label">Acted on it</div>
+          <div class="ac-sub">Follow-up later</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field-block" id="redirectBlock" style="display:none">
+      <div class="field-label">What did you redirect to?</div>
+      <div class="trigger-chips" id="redirectChips"></div>
+      <input class="custom-input" id="customRedirect" placeholder="What did you do instead?" maxlength="80">
+    </div>
+
+    <div class="field-block">
+      <div class="field-label">Private note (optional)</div>
+      <textarea class="custom-input" id="privateNote" placeholder="What were you thinking? No one will ever see this..." maxlength="300"></textarea>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveEntry()">Save</button>
+    <button class="btn btn-outline" style="margin-top:10px" onclick="goTo('dashboard')">Cancel</button>
+  </div>
+</div>
+
+<!-- ===== FOLLOW-UP SCREEN ===== -->
+<div class="screen" id="followupScreen">
+  <div class="log-top">
+    <button class="back-btn" onclick="goTo('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>Back
+    </button>
+    <div class="log-title">Follow-up</div>
+    <div class="log-sub" id="followupTrigger"></div>
+  </div>
+  <div class="log-body">
+
+    <div class="field-block">
+      <div class="field-label">What happened?</div>
+      <div class="outcome-chips" id="outcomeChips"></div>
+    </div>
+
+    <div class="field-block">
+      <div class="field-label">How did you feel after?</div>
+      <div class="feeling-btns">
+        <div class="feeling-btn worse" id="feelWorse" onclick="selectFeeling('worse')">😔<br>Worse</div>
+        <div class="feeling-btn same" id="feelSame" onclick="selectFeeling('same')">😐<br>Same</div>
+        <div class="feeling-btn better" id="feelBetter" onclick="selectFeeling('better')">🙂<br>Better</div>
+      </div>
+    </div>
+
+    <div class="field-block">
+      <div class="field-label">Hours spent thinking / waiting / feeling bad</div>
+      <input type="number" class="hours-input" id="hoursInput" placeholder="0" min="0" max="24" step="0.5">
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">Be honest — this becomes your cost tracker</div>
+    </div>
+
+    <div class="field-block">
+      <div class="field-label">One honest note</div>
+      <textarea class="custom-input" id="followupNote" placeholder="What did acting on it actually give you?" maxlength="200"></textarea>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveFollowup()">Save follow-up</button>
+    <button class="btn btn-outline" style="margin-top:10px" onclick="goTo('dashboard')">Later</button>
+  </div>
+</div>
+
+<!-- ===== INSIGHTS SCREEN ===== -->
+<div class="screen" id="insightsScreen">
+  <div class="log-top">
+    <button class="back-btn" onclick="goTo('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>Back
+    </button>
+    <div class="log-title">Insights</div>
+    <div class="log-sub">Only you see this</div>
+  </div>
+  <div class="insights-body">
+
+    <div class="ins-section">
+      <div class="cost-card">
+        <div class="cost-hours" id="totalHours">0</div>
+        <div class="cost-label">hours lost to acted urges</div>
+        <div class="cost-sub" id="costSub"></div>
+      </div>
+    </div>
+
+    <div class="ins-section">
+      <div class="ins-title">8-Week Trend</div>
+      <div class="trend-chart" id="trendChart"></div>
+      <div class="trend-labels" id="trendLabels"></div>
+    </div>
+
+    <div class="ins-section">
+      <div class="ins-title">Patterns</div>
+      <div id="patternCards"></div>
+    </div>
+
+    <div class="ins-section" id="redirectSection" style="display:none">
+      <div class="ins-title">What you built instead</div>
+      <div class="redirect-list" id="redirectList"></div>
+    </div>
+
+    <div class="ins-section" id="sundaySection">
+      <div class="ins-title">Sunday Reviews</div>
+      <div id="sundayList"></div>
+      <button class="btn btn-outline" style="margin-top:10px" onclick="openSundayReview()" id="sundayBtn">Write this week's review</button>
+    </div>
+
+    <div class="danger-zone">
+      <div class="danger-title">Data</div>
+      <button class="btn btn-danger" onclick="confirmWipe()">Wipe all data</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FOLLOW-UP MODAL (bottom sheet) ===== -->
+<div class="modal-overlay" id="followupModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Ready to follow up?</div>
+    <div class="modal-sub" id="modalTriggerText"></div>
+    <button class="btn btn-primary" onclick="openFollowup()" style="margin-bottom:10px">Add follow-up now</button>
+    <button class="btn btn-outline" onclick="closeModal('followupModal')">Not yet</button>
+  </div>
+</div>
+
+<!-- ===== SUNDAY REVIEW MODAL ===== -->
+<div class="confirm-overlay" id="sundayModal">
+  <div class="sunday-modal">
+    <div class="modal-handle" style="margin:0 auto 16px"></div>
+    <div class="modal-title" style="font-family:var(--serif);font-size:22px;font-weight:300;margin-bottom:6px">Sunday Review</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Three questions. Honest answers.</div>
+    <div class="field-block">
+      <div class="field-label">Did this week feel easier than last?</div>
+      <div class="feeling-btns" style="margin-bottom:0">
+        <div class="feeling-btn worse" id="sunEasier1" onclick="selectSunday('easier','no')">No</div>
+        <div class="feeling-btn same" id="sunEasier2" onclick="selectSunday('easier','same')">Same</div>
+        <div class="feeling-btn better" id="sunEasier3" onclick="selectSunday('easier','yes')">Yes</div>
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:16px">
+      <div class="field-label">Hardest moment this week</div>
+      <textarea class="custom-input" id="sundayHard" placeholder="What was the hardest moment?" maxlength="200" style="min-height:60px"></textarea>
+    </div>
+    <div class="field-block">
+      <div class="field-label">One thing I'm proud of</div>
+      <textarea class="custom-input" id="sundayProud" placeholder="Even something small..." maxlength="200" style="min-height:60px"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="cbtn cbtn-cancel" onclick="closeModal('sundayModal')">Cancel</button>
+      <button class="cbtn" style="background:var(--accent);color:#000" onclick="saveSundayReview()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONFIRM WIPE ===== -->
+<div class="confirm-overlay" id="confirmModal">
+  <div class="confirm-box">
+    <div class="confirm-title">Wipe all data?</div>
+    <div class="confirm-msg">This permanently deletes every entry, every follow-up, every review. This cannot be undone.</div>
+    <div class="confirm-btns">
+      <button class="cbtn cbtn-cancel" onclick="closeModal('confirmModal')">Cancel</button>
+      <button class="cbtn cbtn-confirm" onclick="wipeAll()">Delete everything</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const TRIGGERS=[
+  "Saw them together","Urge to message","She asked for help",
+  "Late night thoughts","Random thought at work","She ignored me",
+  "Feeling lonely","Free time / bored","After a hard day"
+];
+const REDIRECTS=[
+  "Read / studied","Went for a walk","Worked on cases",
+  "Called a friend","Gym / exercise","Slept early","Watched something"
+];
+const OUTCOMES=[
+  "She didn't reply","She replied coldly","She replied normally",
+  "She replied warmly","She asked for help again","Made it awkward"
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let pin1=localStorage.getItem("rf_pin1")||"";
+let pin2=localStorage.getItem("rf_pin2")||"";
+let entries=JSON.parse(localStorage.getItem("rf_entries")||"[]");
+let sundays=JSON.parse(localStorage.getItem("rf_sundays")||"[]");
+
+// PIN state machine
+// phases: create1, confirm1, create2, confirm2, enter1, enter2
+let phase="", buf="", temp1="", temp2="";
+let currentFollowupId=null;
+let selectedAction="", selectedFeeling="", selectedEasier="";
+let selectedOutcome="";
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener("DOMContentLoaded",()=>{
+  if(!pin1){
+    phase="create1";
+    setStep("Create your first PIN","Step 1 of 2 — Primary PIN");
+  } else if(!pin2){
+    phase="create2";
+    setStep("Now create a second PIN","Step 2 of 2 — Backup PIN");
+  } else {
+    phase="enter1";
+    setStep("Enter your PIN","Primary PIN");
+  }
+  buildChips();
+  updateDash();
+  buildInsights();
+});
+
+document.addEventListener("visibilitychange",()=>{ if(document.hidden) lock(); });
+
+// ============================================================
+// PIN
+// ============================================================
+function setStep(hint, step){
+  document.getElementById("pinHint").textContent=hint;
+  document.getElementById("pinStep").textContent=step;
+}
+
+function np(d){
+  if(buf.length>=6)return;
+  buf+=d; dots(buf.length);
+  if(buf.length===6) setTimeout(process,180);
+}
+function nd(){ if(!buf.length)return; buf=buf.slice(0,-1); dots(buf.length); }
+function dots(n){
+  for(let i=0;i<6;i++){
+    const el=document.getElementById("d"+i);
+    el.classList.remove("on","on2","err");
+    if(i<n) el.classList.add(phase==="enter2"||phase==="confirm2"?"on2":"on");
+  }
+}
+function clearDots(){ buf=""; dots(0); }
+
+function process(){
+  switch(phase){
+    case "create1":
+      temp1=buf; clearDots();
+      phase="confirm1";
+      setStep("Confirm your first PIN","Step 1 of 2 — Confirm Primary PIN");
+      break;
+    case "confirm1":
+      if(buf===temp1){
+        pin1=buf; localStorage.setItem("rf_pin1",pin1);
+        clearDots(); phase="create2";
+        setStep("Now create a second PIN","Step 2 of 2 — Backup PIN");
+        document.getElementById("pinStep").style.color="var(--green)";
+        setTimeout(()=>document.getElementById("pinStep").style.color="var(--accent)",1000);
+      } else {
+        pinErr("PINs don't match"); clearDots();
+        phase="create1"; setStep("Create your first PIN again","Step 1 of 2 — Primary PIN");
+      }
+      break;
+    case "create2":
+      if(buf===pin1){ pinErr("Must be different from first PIN"); clearDots(); return; }
+      temp2=buf; clearDots();
+      phase="confirm2";
+      setStep("Confirm your second PIN","Step 2 of 2 — Confirm Backup PIN");
+      break;
+    case "confirm2":
+      if(buf===temp2){
+        pin2=buf; localStorage.setItem("rf_pin2",pin2);
+        clearDots();
+        goTo("dashboard");
+      } else {
+        pinErr("PINs don't match"); clearDots();
+        phase="create2"; setStep("Create second PIN again","Step 2 of 2 — Backup PIN");
+      }
+      break;
+    case "enter1":
+      if(buf===pin1){ clearDots(); goTo("dashboard"); }
+      else if(buf===pin2){ clearDots(); goTo("dashboard"); } // backup PIN also works
+      else {
+        pinErr("Incorrect PIN"); errDots();
+        // hint after wrong: try backup
+        setTimeout(()=>{ clearDots(); },700);
+      }
+      break;
+  }
+}
+
+function errDots(){
+  for(let i=0;i<6;i++) document.getElementById("d"+i).classList.add("err");
+  buf="";
+}
+function pinErr(m){
+  const el=document.getElementById("pinMsg");
+  el.textContent=m; el.classList.add("show");
+  setTimeout(()=>el.classList.remove("show"),2500);
+}
+function lock(){ buf=""; dots(0); phase="enter1"; setStep("Enter your PIN","Primary PIN"); goTo("pinScreen"); }
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goTo(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  const el=document.getElementById(id); el.classList.add("active"); el.scrollTop=0;
+  if(id==="logScreen") initLog();
+  if(id==="insightsScreen") buildInsights();
+  if(id==="dashboard") updateDash();
+}
+
+// ============================================================
+// CHIPS
+// ============================================================
+function buildChips(){
+  const tc=document.getElementById("triggerChips");
+  TRIGGERS.forEach(t=>{
+    const c=document.createElement("div"); c.className="chip"; c.textContent=t;
+    c.onclick=()=>{ c.classList.toggle("selected"); };
+    tc.appendChild(c);
+  });
+  const rc=document.getElementById("redirectChips");
+  REDIRECTS.forEach(r=>{
+    const c=document.createElement("div"); c.className="chip"; c.textContent=r;
+    c.onclick=()=>{ c.classList.toggle("selected"); };
+    rc.appendChild(c);
+  });
+  const oc=document.getElementById("outcomeChips");
+  OUTCOMES.forEach(o=>{
+    const c=document.createElement("div"); c.className="outcome-chip"; c.textContent=o;
+    c.onclick=()=>{
+      document.querySelectorAll(".outcome-chip").forEach(x=>x.classList.remove("selected"));
+      c.classList.add("selected"); selectedOutcome=o;
+    };
+    oc.appendChild(c);
+  });
+}
+
+// ============================================================
+// LOG SCREEN
+// ============================================================
+function initLog(){
+  const now=new Date();
+  document.getElementById("logTime").textContent=now.toLocaleString("en-IN",{weekday:"long",hour:"2-digit",minute:"2-digit"});
+  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("selected"));
+  document.getElementById("customTrigger").value="";
+  document.getElementById("privateNote").value="";
+  document.getElementById("customRedirect").value="";
+  document.getElementById("intensitySlider").value=5;
+  document.getElementById("intensityVal").textContent="5";
+  selectedAction="";
+  document.getElementById("cardResist").classList.remove("selected");
+  document.getElementById("cardActed").classList.remove("selected");
+  document.getElementById("redirectBlock").style.display="none";
+}
+
+function updateIntensity(){
+  const v=document.getElementById("intensitySlider").value;
+  document.getElementById("intensityVal").textContent=v;
+}
+
+function selectAction(a){
+  selectedAction=a;
+  document.getElementById("cardResist").classList.toggle("selected",a==="resist");
+  document.getElementById("cardActed").classList.toggle("selected",a==="acted");
+  document.getElementById("redirectBlock").style.display=a==="resist"?"block":"none";
+}
+
+function saveEntry(){
+  const selectedTriggers=[...document.querySelectorAll("#triggerChips .chip.selected")].map(c=>c.textContent);
+  const customTrigger=document.getElementById("customTrigger").value.trim();
+  const trigger=[...selectedTriggers, customTrigger].filter(Boolean).join(", ") || "Unspecified";
+  if(!selectedAction){ alert("Please select what you did"); return; }
+  const intensity=+document.getElementById("intensitySlider").value;
+  const note=document.getElementById("privateNote").value.trim();
+  let redirect="";
+  if(selectedAction==="resist"){
+    const rs=[...document.querySelectorAll("#redirectChips .chip.selected")].map(c=>c.textContent);
+    const cr=document.getElementById("customRedirect").value.trim();
+    redirect=[...rs,cr].filter(Boolean).join(", ");
+  }
+  const entry={
+    id:Date.now().toString(),
+    ts:new Date().toISOString(),
+    trigger, intensity, action:selectedAction,
+    redirect, note,
+    followup:null
+  };
+  entries.unshift(entry);
+  save();
+  goTo("dashboard");
+}
+
+// ============================================================
+// FOLLOW-UP
+// ============================================================
+let activeFollowupEntry=null;
+
+function openPendingModal(id){
+  const e=entries.find(x=>x.id===id);
+  if(!e)return;
+  activeFollowupEntry=e;
+  document.getElementById("modalTriggerText").textContent=`"${e.trigger}" — ${fmtTime(e.ts)}`;
+  document.getElementById("followupModal").classList.add("show");
+}
+
+function openFollowup(){
+  closeModal("followupModal");
+  if(!activeFollowupEntry)return;
+  document.getElementById("followupTrigger").textContent=`"${activeFollowupEntry.trigger}"`;
+  document.getElementById("hoursInput").value="";
+  document.getElementById("followupNote").value="";
+  selectedFeeling=""; selectedOutcome="";
+  document.querySelectorAll(".feeling-btn").forEach(b=>b.classList.remove("worse","same","better","selected"));
+  document.getElementById("feelWorse").classList.add("worse");
+  document.getElementById("feelSame").classList.add("same");
+  document.getElementById("feelBetter").classList.add("better");
+  document.querySelectorAll(".outcome-chip").forEach(c=>c.classList.remove("selected"));
+  goTo("followupScreen");
+}
+
+function selectFeeling(f){
+  selectedFeeling=f;
+  ["worse","same","better"].forEach(x=>{
+    const el=document.getElementById("feel"+x.charAt(0).toUpperCase()+x.slice(1));
+    el.classList.toggle("selected",x===f);
+  });
+}
+
+function saveFollowup(){
+  if(!activeFollowupEntry)return;
+  const hours=parseFloat(document.getElementById("hoursInput").value)||0;
+  const note=document.getElementById("followupNote").value.trim();
+  activeFollowupEntry.followup={
+    ts:new Date().toISOString(),
+    outcome:selectedOutcome,
+    feeling:selectedFeeling,
+    hours, note
+  };
+  save();
+  activeFollowupEntry=null;
+  goTo("dashboard");
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function updateDash(){
+  const now=new Date();
+  document.getElementById("dashDate").textContent=now.toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}).toUpperCase();
+
+  const weekAgo=new Date(now-7*86400000);
+  const weekEntries=entries.filter(e=>new Date(e.ts)>=weekAgo);
+  document.getElementById("statWeek").textContent=weekEntries.length;
+  document.getElementById("statResist").textContent=weekEntries.filter(e=>e.action==="resist").length;
+  const totalHours=entries.filter(e=>e.followup&&e.followup.hours).reduce((s,e)=>s+e.followup.hours,0);
+  document.getElementById("statHours").textContent=totalHours%1===0?totalHours:totalHours.toFixed(1);
+
+  // pending follow-ups
+  const pending=entries.filter(e=>e.action==="acted"&&!e.followup);
+  const ps=document.getElementById("pendingSection");
+  const pl=document.getElementById("pendingList");
+  pl.innerHTML="";
+  if(pending.length>0){
+    ps.style.display="block";
+    pending.slice(0,3).forEach(e=>{
+      const d=document.createElement("div"); d.className="pending-item";
+      d.innerHTML=`<div class="pi-trigger">${e.trigger}</div><div class="pi-time">${fmtTime(e.ts)} — tap to follow up</div>`;
+      d.onclick=()=>openPendingModal(e.id);
+      pl.appendChild(d);
+    });
+  } else { ps.style.display="none"; }
+
+  // recent
+  const rl=document.getElementById("recentList"); rl.innerHTML="";
+  if(entries.length===0){
+    rl.innerHTML=`<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">No entries yet.<br>Log your first urge when you feel it.</div>`;
+    return;
+  }
+  entries.slice(0,8).forEach(e=>{
+    const d=document.createElement("div"); d.className="entry-item";
+    const badgeClass=e.action==="resist"?"badge-resist":e.followup?"badge-acted":"badge-pending";
+    const badgeText=e.action==="resist"?"Resisted":e.followup?"Acted":"Acted • follow up";
+    d.innerHTML=`
+      <div class="entry-top">
+        <div class="entry-trigger">${e.trigger}</div>
+        <div class="entry-badge ${badgeClass}">${badgeText}</div>
+      </div>
+      <div class="entry-bottom">
+        <div class="entry-meta">${fmtTime(e.ts)}</div>
+        <div class="entry-intensity">Intensity ${e.intensity}/10</div>
+      </div>`;
+    if(e.action==="acted"&&!e.followup) d.onclick=()=>openPendingModal(e.id);
+    rl.appendChild(d);
+  });
+}
+
+// ============================================================
+// INSIGHTS
+// ============================================================
+function buildInsights(){
+  // cost
+  const totalHours=entries.filter(e=>e.followup&&e.followup.hours).reduce((s,e)=>s+e.followup.hours,0);
+  document.getElementById("totalHours").textContent=totalHours%1===0?totalHours:totalHours.toFixed(1);
+  const sub=totalHours===0?"No hours lost yet — keep resisting":
+            totalHours<10?`${totalHours} hours you won't get back`:
+            `That's ${(totalHours/24).toFixed(1)} full days of your life`;
+  document.getElementById("costSub").textContent=sub;
+
+  // 8-week trend
+  const tc=document.getElementById("trendChart"); tc.innerHTML="";
+  const tl=document.getElementById("trendLabels"); tl.innerHTML="";
+  const weeks=[];
+  for(let w=7;w>=0;w--){
+    const start=new Date(); start.setDate(start.getDate()-w*7-6); start.setHours(0,0,0,0);
+    const end=new Date(start); end.setDate(end.getDate()+6); end.setHours(23,59,59,999);
+    const we=entries.filter(e=>{ const d=new Date(e.ts); return d>=start&&d<=end; });
+    weeks.push({resist:we.filter(e=>e.action==="resist").length, acted:we.filter(e=>e.action==="acted").length, label:"W"+(8-w)});
+  }
+  const maxW=Math.max(...weeks.map(w=>w.resist+w.acted),1);
+  weeks.forEach(w=>{
+    const total=w.resist+w.acted;
+    const pct=total/maxW*100;
+    const bar=document.createElement("div"); bar.className="tbar";
+    bar.style.height=Math.max(pct,3)+"%";
+    if(w.resist>0&&w.acted>0) bar.classList.add("has-mixed");
+    else if(w.resist>0) bar.classList.add("has-resist");
+    else if(w.acted>0) bar.classList.add("has-acted");
+    tc.appendChild(bar);
+    const lb=document.createElement("div"); lb.className="tlabel"; lb.textContent=w.label;
+    tl.appendChild(lb);
+  });
+
+  // patterns
+  const pc=document.getElementById("patternCards"); pc.innerHTML="";
+  const totalEntries=entries.length;
+  const resistCount=entries.filter(e=>e.action==="resist").length;
+  const resistRate=totalEntries>0?Math.round(resistCount/totalEntries*100):0;
+  const avgIntensity=totalEntries>0?(entries.reduce((s,e)=>s+e.intensity,0)/totalEntries).toFixed(1):0;
+
+  // peak hour
+  const hours=entries.map(e=>new Date(e.ts).getHours());
+  const hourCount={}; hours.forEach(h=>hourCount[h]=(hourCount[h]||0)+1);
+  const peakHour=Object.entries(hourCount).sort((a,b)=>b[1]-a[1])[0];
+  const peakLabel=peakHour?fmtHour(+peakHour[0]):"—";
+
+  // most common trigger
+  const trigCount={};
+  entries.forEach(e=>{ if(e.trigger&&e.trigger!=="Unspecified") trigCount[e.trigger]=(trigCount[e.trigger]||0)+1; });
+  const topTrigger=Object.entries(trigCount).sort((a,b)=>b[1]-a[1])[0];
+
+  // feeling after acting
+  const actedWithFollowup=entries.filter(e=>e.action==="acted"&&e.followup&&e.followup.feeling);
+  const worseCount=actedWithFollowup.filter(e=>e.followup.feeling==="worse").length;
+  const worseRate=actedWithFollowup.length>0?Math.round(worseCount/actedWithFollowup.length*100):0;
+
+  const patterns=[
+    {label:"Resistance rate",val:`<span>${resistRate}%</span> of urges resisted`},
+    {label:"Average intensity",val:`<span>${avgIntensity}/10</span> average urge strength`},
+    {label:"Peak risk time",val:`Urges peak around <span>${peakLabel}</span>`},
+    topTrigger?{label:"Most common trigger",val:`<span>"${topTrigger[0]}"</span> (${topTrigger[1]}x)`}:null,
+    actedWithFollowup.length>0?{label:"Outcome of acting",val:`Felt worse <span>${worseRate}%</span> of the time`}:null,
+  ].filter(Boolean);
+
+  patterns.forEach(p=>{
+    const d=document.createElement("div"); d.className="pattern-card";
+    d.innerHTML=`<div class="pattern-label">${p.label}</div><div class="pattern-val">${p.val}</div>`;
+    pc.appendChild(d);
+  });
+
+  // redirects
+  const redirectMap={};
+  entries.filter(e=>e.redirect).forEach(e=>{ redirectMap[e.redirect]=(redirectMap[e.redirect]||0)+1; });
+  const rl=document.getElementById("redirectList"); rl.innerHTML="";
+  const redirectEntries=Object.entries(redirectMap).sort((a,b)=>b[1]-a[1]);
+  if(redirectEntries.length>0){
+    document.getElementById("redirectSection").style.display="block";
+    redirectEntries.slice(0,5).forEach(([label,count])=>{
+      const d=document.createElement("div"); d.className="redirect-item";
+      d.innerHTML=`<div class="ri-label">${label}</div><div class="ri-count">${count}x</div>`;
+      rl.appendChild(d);
+    });
+  }
+
+  // sunday reviews
+  const sl=document.getElementById("sundayList"); sl.innerHTML="";
+  const isSunday=new Date().getDay()===0;
+  document.getElementById("sundayBtn").style.display=isSunday?"block":"none";
+  sundays.slice(0,4).forEach(s=>{
+    const d=document.createElement("div"); d.className="sunday-card";
+    d.innerHTML=`
+      <div class="sunday-title">${fmtDate(s.ts)}</div>
+      <div class="sunday-sub">Easier: ${s.easier} · ${s.proud?"Proud: "+s.proud:""}</div>
+      ${s.hard?`<div class="sunday-past">"${s.hard}"</div>`:""}`;
+    sl.appendChild(d);
+  });
+}
+
+// ============================================================
+// SUNDAY REVIEW
+// ============================================================
+function openSundayReview(){
+  selectedEasier="";
+  ["sunEasier1","sunEasier2","sunEasier3"].forEach(id=>document.getElementById(id).classList.remove("selected","worse","same","better"));
+  document.getElementById("sunEasier1").classList.add("worse");
+  document.getElementById("sunEasier2").classList.add("same");
+  document.getElementById("sunEasier3").classList.add("better");
+  document.getElementById("sundayHard").value="";
+  document.getElementById("sundayProud").value="";
+  document.getElementById("sundayModal").classList.add("show");
+}
+
+function selectSunday(field, val){
+  if(field==="easier"){
+    selectedEasier=val;
+    document.getElementById("sunEasier1").classList.toggle("selected",val==="no");
+    document.getElementById("sunEasier2").classList.toggle("selected",val==="same");
+    document.getElementById("sunEasier3").classList.toggle("selected",val==="yes");
+  }
+}
+
+function saveSundayReview(){
+  const hard=document.getElementById("sundayHard").value.trim();
+  const proud=document.getElementById("sundayProud").value.trim();
+  sundays.unshift({ts:new Date().toISOString(), easier:selectedEasier||"—", hard, proud});
+  localStorage.setItem("rf_sundays",JSON.stringify(sundays));
+  closeModal("sundayModal");
+  buildInsights();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function save(){
+  localStorage.setItem("rf_entries",JSON.stringify(entries));
+}
+
+function wipeAll(){
+  localStorage.removeItem("rf_entries");
+  localStorage.removeItem("rf_sundays");
+  entries=[]; sundays=[];
+  closeModal("confirmModal");
+  updateDash(); buildInsights();
+}
+
+function confirmWipe(){ document.getElementById("confirmModal").classList.add("show"); }
+function closeModal(id){ document.getElementById(id).classList.remove("show"); }
+
+function fmtTime(ts){
+  const d=new Date(ts);
+  return d.toLocaleDateString("en-IN",{day:"numeric",month:"short"})+" · "+d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+}
+function fmtDate(ts){ return new Date(ts).toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}); }
+function fmtHour(h){ return h===0?"midnight":h<12?h+"am":h===12?"noon":(h-12)+"pm"; }
+</script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("/reflect/sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
