@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Reflect</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reflect">
+<meta name="theme-color" content="#080a0f">
+<style>
+:root{
+  --bg:#080a0f;
+  --surface:#0f1219;
+  --surface2:#161b26;
+  --border:#1e2535;
+  --border2:#252f42;
+  --accent:#c084fc;
+  --aglow:rgba(192,132,252,0.15);
+  --red:#f87171;
+  --rglow:rgba(248,113,113,0.15);
+  --green:#6ee7b7;
+  --gglow:rgba(110,231,183,0.12);
+  --teal:#38bdf8;
+  --tglow:rgba(56,189,248,0.12);
+  --gold:#fbbf24;
+  --text:#dde3f0;
+  --muted:#5a6480;
+  --muted2:#404866;
+  --serif:'Cormorant Garamond',serif;
+  --sans:'DM Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--sans);background:var(--bg);color:var(--text)}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:1000;opacity:0.4}
+.screen{display:none;height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;z-index:1;-webkit-overflow-scrolling:touch}
+.screen.active{display:block}
+
+/* PIN */
+#pinScreen{background:var(--bg)}
+.pin-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px}
+.pin-logo{font-family:var(--serif);font-size:48px;font-weight:300;color:var(--text);text-align:center;margin-bottom:4px;letter-spacing:2px;cursor:default;user-select:none}
+.pin-sub{font-size:11px;color:var(--muted);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.pin-step{font-size:12px;color:var(--accent);text-align:center;letter-spacing:1px;margin-bottom:44px;opacity:0.8}
+.pin-dots{display:flex;gap:18px;margin-bottom:44px}
+.pdot{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--border2);transition:all .25s}
+.pdot.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 12px var(--aglow)}
+.pdot.on2{background:var(--green);border-color:var(--green);box-shadow:0 0 12px var(--gglow)}
+.pdot.err{background:var(--red);border-color:var(--red)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px}
+.nk{height:66px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--sans);font-size:22px;font-weight:400;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;user-select:none}
+.nk:active{background:var(--accent);border-color:var(--accent);transform:scale(0.93);color:#000}
+.nk.ghost{background:transparent;border-color:transparent;pointer-events:none}
+.nk.del{font-size:16px;color:var(--muted)}
+.pin-msg{font-size:12px;color:var(--red);text-align:center;margin-top:16px;height:16px;opacity:0;transition:opacity .3s}
+.pin-msg.show{opacity:1}
+.pin-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6;max-width:240px}
+
+/* DECOY SCREEN */
+#decoyScreen .dash-top{padding:56px 22px 0}
+.decoy-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 22px;text-align:center;min-height:60vh}
+.decoy-empty-icon{font-size:48px;margin-bottom:16px;opacity:0.3}
+.decoy-empty-text{font-size:14px;color:var(--muted);line-height:1.7}
+
+/* DASHBOARD */
+.dash-top{padding:56px 22px 0}
+.dash-date{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+.dash-title{font-family:var(--serif);font-size:38px;font-weight:300;color:var(--text);margin-bottom:6px;letter-spacing:1px;cursor:default;user-select:none}
+.dash-subtitle{font-size:12px;color:var(--muted);margin-bottom:28px;font-weight:300}
+.stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:0 22px 20px}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 12px;text-align:center}
+.scard .sl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.scard .sv{font-family:var(--serif);font-size:26px;font-weight:400}
+.sv.purple{color:var(--accent)}.sv.red{color:var(--red)}.sv.green{color:var(--green)}.sv.teal{color:var(--teal)}
+
+/* resist streak banner */
+.streak-banner{margin:0 22px 16px;background:rgba(110,231,183,0.06);border:1px solid rgba(110,231,183,0.2);border-radius:13px;padding:13px 16px;display:none;align-items:center;justify-content:space-between}
+.streak-banner.show{display:flex}
+.sb-left{font-size:13px;color:var(--green)}
+.sb-num{font-family:var(--serif);font-size:28px;color:var(--green)}
+
+/* pending */
+.pending-section{margin:0 22px 20px}
+.pending-title{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.pending-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.pending-item{background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer}
+.pi-trigger{font-size:13px;color:var(--text);margin-bottom:3px}
+.pi-time{font-size:11px;color:var(--muted)}
+.pi-overdue{font-size:10px;color:var(--red);margin-top:3px}
+
+/* action buttons */
+.dash-actions{display:flex;flex-direction:column;gap:10px;margin:0 22px 20px}
+.btn{width:100%;padding:16px;border:none;border-radius:13px;font-family:var(--sans);font-size:14px;font-weight:400;cursor:pointer;transition:all .2s;letter-spacing:0.3px}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:var(--accent);color:#000;letter-spacing:0.5px}
+.btn-outline{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-danger{background:rgba(248,113,113,0.08);color:var(--red);border:1px solid rgba(248,113,113,0.2)}
+.btn-sm{padding:10px 16px;font-size:13px;width:auto}
+
+/* recent */
+.recent-section{margin:0 22px 60px}
+.section-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:12px}
+.entry-item{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px;margin-bottom:8px;cursor:pointer;transition:all .2s}
+.entry-item:active{opacity:0.7}
+.entry-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.entry-trigger{font-size:13px;color:var(--text);flex:1;margin-right:10px;line-height:1.4}
+.entry-badge{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:500;flex-shrink:0}
+.badge-held{background:rgba(110,231,183,0.1);color:var(--green);border:1px solid rgba(110,231,183,0.2)}
+.badge-healthy{background:rgba(56,189,248,0.1);color:var(--teal);border:1px solid rgba(56,189,248,0.2)}
+.badge-over{background:rgba(248,113,113,0.1);color:var(--red);border:1px solid rgba(248,113,113,0.2)}
+.badge-pending{background:rgba(251,191,36,0.1);color:var(--gold);border:1px solid rgba(251,191,36,0.2)}
+.entry-bottom{display:flex;justify-content:space-between;align-items:center}
+.entry-meta{font-size:11px;color:var(--muted)}
+.entry-intensity{font-size:11px;color:var(--muted)}
+
+/* LOG SCREEN */
+.log-top{padding:52px 22px 0}
+.back-btn{display:flex;align-items:center;gap:8px;background:none;border:none;color:var(--muted);font-family:var(--sans);font-size:13px;cursor:pointer;padding:0;margin-bottom:20px}
+.back-btn svg{width:16px;height:16px}
+.log-title{font-family:var(--serif);font-size:32px;font-weight:300;color:var(--text);margin-bottom:6px;letter-spacing:1px}
+.log-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
+.log-body{padding:0 22px 60px}
+.field-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px}
+.field-block{margin-bottom:22px}
+
+/* chips */
+.chips-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.chip{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:13px;cursor:pointer;transition:all .2s;user-select:none}
+.chip:active{transform:scale(0.95)}
+.chip.selected{border-color:var(--accent);color:var(--accent);background:rgba(192,132,252,0.08)}
+.chip.deletable{position:relative;padding-right:28px}
+.chip-del{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);line-height:1}
+.chip-add{border-style:dashed;color:var(--muted2)}
+.custom-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text);font-family:var(--sans);font-size:13px;margin-top:8px;outline:none;transition:border .2s}
+.custom-input:focus{border-color:var(--accent)}
+.custom-input::placeholder{color:var(--muted)}
+textarea.custom-input{resize:none;min-height:80px;line-height:1.6}
+
+/* intensity */
+.intensity-row{display:flex;align-items:center;gap:14px}
+.intensity-slider{flex:1;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--border2);outline:none}
+.intensity-slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 10px var(--aglow)}
+.intensity-val{font-family:var(--serif);font-size:28px;color:var(--accent);width:32px;text-align:center}
+
+/* THREE-STATE outcome cards */
+.outcome-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.outcome-card{padding:14px 8px;border-radius:14px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;text-align:center;transition:all .2s;user-select:none}
+.outcome-card:active{transform:scale(0.96)}
+.outcome-card.held.selected{border-color:var(--green);background:rgba(110,231,183,0.07)}
+.outcome-card.healthy.selected{border-color:var(--teal);background:rgba(56,189,248,0.07)}
+.outcome-card.over.selected{border-color:var(--red);background:rgba(248,113,113,0.07)}
+.oc-icon{font-size:26px;margin-bottom:6px}
+.oc-label{font-size:12px;color:var(--text);margin-bottom:2px;font-weight:500}
+.oc-sub{font-size:10px;color:var(--muted);line-height:1.4}
+
+/* redirect block */
+#redirectBlock{display:none}
+
+/* feeling after */
+.feeling-btns{display:flex;gap:8px}
+.feeling-btn{flex:1;padding:12px 8px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;text-align:center;transition:all .2s;user-select:none;line-height:1.5}
+.feeling-btn.worse.selected{border-color:var(--red);color:var(--red);background:rgba(248,113,113,0.07)}
+.feeling-btn.same.selected{border-color:var(--gold);color:var(--gold);background:rgba(251,191,36,0.07)}
+.feeling-btn.better.selected{border-color:var(--green);color:var(--green);background:rgba(110,231,183,0.07)}
+
+/* FOLLOW-UP */
+.outcome-chips{display:flex;flex-wrap:wrap;gap:8px}
+.outcome-chip{padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:13px;cursor:pointer;transition:all .2s;user-select:none}
+.outcome-chip.selected{border-color:var(--red);color:var(--red);background:rgba(248,113,113,0.07)}
+.hours-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;color:var(--text);font-family:var(--sans);font-size:22px;outline:none;text-align:center;transition:border .2s}
+.hours-input:focus{border-color:var(--accent)}
+
+/* INSIGHTS */
+.insights-body{padding:0 22px 60px}
+.ins-section{margin-bottom:28px}
+.ins-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px}
+
+/* tabs */
+.ins-tabs{display:flex;gap:8px;margin-bottom:22px;overflow-x:auto;scrollbar-width:none}
+.ins-tabs::-webkit-scrollbar{display:none}
+.ins-tab{flex-shrink:0;padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--muted);cursor:pointer;transition:all .2s;font-family:var(--sans)}
+.ins-tab.active{background:var(--accent);border-color:var(--accent);color:#000}
+.ins-panel{display:none}
+.ins-panel.active{display:block}
+
+/* cost card */
+.cost-card{background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.2);border-radius:16px;padding:20px;text-align:center;margin-bottom:16px}
+.cost-hours{font-family:var(--serif);font-size:52px;color:var(--red);line-height:1}
+.cost-label{font-size:12px;color:var(--muted);margin-top:6px}
+.cost-sub{font-size:11px;color:var(--muted);margin-top:4px;font-style:italic}
+
+/* key numbers grid */
+.ins-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+.ins-stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px}
+.ist-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.ist-val{font-family:var(--serif);font-size:26px;margin-bottom:2px}
+.ist-sub{font-size:11px;color:var(--muted);line-height:1.4}
+
+/* trend chart */
+.trend-chart{display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:8px}
+.tbar{flex:1;border-radius:3px 3px 0 0;background:var(--border);min-height:3px;position:relative}
+.tbar.has-held{background:linear-gradient(180deg,var(--green),rgba(110,231,183,0.4))}
+.tbar.has-healthy{background:linear-gradient(180deg,var(--teal),rgba(56,189,248,0.4))}
+.tbar.has-over{background:linear-gradient(180deg,var(--red),rgba(248,113,113,0.4))}
+.tbar.has-mixed{background:linear-gradient(180deg,var(--accent) 50%,var(--red) 50%)}
+.trend-labels{display:flex;gap:4px}
+.tlabel{flex:1;text-align:center;font-size:9px;color:var(--muted)}
+
+/* trigger breakdown */
+.trigger-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.tr-name{font-size:12px;color:var(--text);flex:1;line-height:1.3}
+.tr-bar-bg{width:70px;height:6px;background:var(--border2);border-radius:3px;overflow:hidden;flex-shrink:0}
+.tr-bar-fill{height:100%;border-radius:3px}
+.tr-pct{font-size:11px;width:36px;text-align:right;flex-shrink:0}
+
+/* time of day heatmap */
+.tod-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tod-cell{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center}
+.tod-name{font-size:10px;color:var(--muted);margin-bottom:5px}
+.tod-count{font-family:var(--serif);font-size:20px}
+.tod-bar{height:4px;border-radius:2px;background:var(--accent);margin-top:5px;transition:width .5s}
+
+/* pattern card */
+.pattern-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px}
+.pattern-label{font-size:12px;color:var(--text);margin-bottom:4px}
+.pattern-val{font-size:11px;color:var(--muted)}
+.pattern-val span{color:var(--accent)}
+
+/* redirect list */
+.redirect-item{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.ri-label{font-size:13px;color:var(--text)}
+.ri-count{font-size:12px;color:var(--accent)}
+
+/* evidence log */
+.evidence-item{background:rgba(248,113,113,0.04);border:1px solid rgba(248,113,113,0.15);border-radius:13px;padding:14px;margin-bottom:10px}
+.ev-trigger{font-size:13px;color:var(--text);margin-bottom:6px}
+.ev-meta{font-size:11px;color:var(--muted);margin-bottom:6px}
+.ev-feeling{font-size:12px;margin-bottom:4px}
+.ev-note{font-size:12px;color:var(--muted);font-style:italic;line-height:1.5;border-left:2px solid var(--border2);padding-left:10px;margin-top:6px}
+
+/* 10-day timeline */
+.day-block{margin-bottom:20px}
+.day-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.day-date{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.day-summary{font-size:10px;color:var(--muted2);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+.day-entry{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px}
+.de-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;gap:8px}
+.de-trigger{font-size:13px;color:var(--text);flex:1;line-height:1.4}
+.de-time{font-size:10px;color:var(--muted);flex-shrink:0}
+.de-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.de-badge{font-size:10px;padding:2px 8px;border-radius:10px}
+.de-intensity{font-size:11px;color:var(--muted)}
+.de-note{font-size:12px;color:var(--muted);font-style:italic;margin-top:6px;line-height:1.5;border-left:2px solid var(--border2);padding-left:8px}
+.de-followup{font-size:11px;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
+.de-redirect{font-size:11px;color:var(--teal);margin-top:4px}
+.day-empty{font-size:12px;color:var(--muted2);font-style:italic;padding:8px 0}
+
+/* reciprocity tracker */
+.recip-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px}
+.recip-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.recip-label{font-size:12px;color:var(--text)}
+.recip-val{font-family:var(--serif);font-size:20px}
+.recip-bar-bg{height:6px;background:var(--border2);border-radius:3px;overflow:hidden;margin-top:8px}
+.recip-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--teal))}
+.recip-note{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
+
+/* sunday review */
+.sunday-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border2);border-radius:16px;padding:20px;margin-bottom:14px}
+.sunday-title{font-family:var(--serif);font-size:18px;font-weight:300;color:var(--text);margin-bottom:4px}
+.sunday-sub{font-size:11px;color:var(--muted);margin-bottom:12px}
+.sunday-past{font-size:13px;color:var(--muted);font-style:italic;line-height:1.6;border-left:2px solid var(--border2);padding-left:12px;margin-bottom:8px}
+.sunday-q-label{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+
+/* danger zone */
+.danger-zone{margin:0 22px 60px;border-top:1px solid var(--border);padding-top:24px}
+.danger-title{font-size:10px;color:var(--red);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:12px}
+
+/* modals */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(8px)}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:24px 24px 0 0;padding:28px 22px 48px;width:100%;max-width:480px;transform:translateY(100%);transition:transform .35s cubic-bezier(0.32,0.72,0,1)}
+.modal-overlay.show .modal{transform:translateY(0)}
+.modal-handle{width:36px;height:3px;background:var(--border2);border-radius:2px;margin:0 auto 20px}
+.modal-title{font-family:var(--serif);font-size:24px;font-weight:300;margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(8px)}
+.confirm-overlay.show{opacity:1;pointer-events:all}
+.confirm-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:28px 22px;max-width:320px;width:100%;text-align:center}
+.confirm-title{font-family:var(--serif);font-size:22px;font-weight:300;margin-bottom:8px}
+.confirm-msg{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:20px}
+.confirm-btns{display:flex;gap:10px}
+.cbtn{flex:1;padding:14px;border:none;border-radius:12px;font-family:var(--sans);font-size:14px;cursor:pointer}
+.cbtn-cancel{background:var(--surface2);color:var(--muted)}
+.cbtn-confirm{background:var(--red);color:#fff}
+
+/* sunday modal */
+.sunday-modal-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:28px 22px;max-width:380px;width:100%;text-align:left;max-height:88vh;overflow-y:auto}
+
+/* chip manager modal */
+.chip-manager{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:24px 22px;max-width:380px;width:100%;text-align:left}
+.cm-title{font-family:var(--serif);font-size:20px;font-weight:300;margin-bottom:14px}
+.cm-input-row{display:flex;gap:8px;margin-top:10px}
+.cm-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none}
+.cm-input:focus{border-color:var(--accent)}
+.cm-add-btn{padding:10px 16px;background:var(--accent);color:#000;border:none;border-radius:10px;font-family:var(--sans);font-size:13px;cursor:pointer}
+
+/* wipe pin screen */
+.wipe-pin-box{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:28px 22px;max-width:320px;width:100%;text-align:center}
+.wipe-pin-dots{display:flex;gap:14px;justify-content:center;margin:20px 0}
+.wpdot{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--border2);transition:all .25s}
+.wpdot.on{background:var(--red);border-color:var(--red)}
+.wipe-numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:240px;margin:0 auto}
+.wnk{height:56px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--sans);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;user-select:none}
+.wnk:active{background:var(--red);transform:scale(0.93)}
+.wnk.ghost{background:transparent;border-color:transparent;pointer-events:none}
+</style>
+</head>
+<body>
+
+<!-- PIN SCREEN -->
+<div class="screen active" id="pinScreen">
+  <div class="pin-wrap">
+    <div class="pin-logo" id="pinLogo">Reflect</div>
+    <div class="pin-sub">Private Journal</div>
+    <div class="pin-step" id="pinStep"></div>
+    <div class="pin-dots">
+      <div class="pdot" id="d0"></div><div class="pdot" id="d1"></div><div class="pdot" id="d2"></div>
+      <div class="pdot" id="d3"></div><div class="pdot" id="d4"></div><div class="pdot" id="d5"></div>
+    </div>
+    <div class="numpad">
+      <button class="nk" onclick="np('1')">1</button><button class="nk" onclick="np('2')">2</button><button class="nk" onclick="np('3')">3</button>
+      <button class="nk" onclick="np('4')">4</button><button class="nk" onclick="np('5')">5</button><button class="nk" onclick="np('6')">6</button>
+      <button class="nk" onclick="np('7')">7</button><button class="nk" onclick="np('8')">8</button><button class="nk" onclick="np('9')">9</button>
+      <button class="nk ghost"></button><button class="nk" onclick="np('0')">0</button><button class="nk del" onclick="nd()">⌫</button>
+    </div>
+    <div class="pin-msg" id="pinMsg"></div>
+    <div class="pin-hint" id="pinHint"></div>
+  </div>
+</div>
+
+<!-- DECOY SCREEN (PIN 2) -->
+<div class="screen" id="decoyScreen">
+  <div class="dash-top">
+    <div class="dash-date" id="decoyDate"></div>
+    <div class="dash-title" id="decoyTitle">Reflect</div>
+    <div class="dash-subtitle">Your private space</div>
+  </div>
+  <div class="stat-row">
+    <div class="scard"><div class="sl">This Week</div><div class="sv purple">0</div></div>
+    <div class="scard"><div class="sl">Held Back</div><div class="sv green">0</div></div>
+    <div class="scard"><div class="sl">Time Lost</div><div class="sv red">0</div></div>
+  </div>
+  <div class="dash-actions">
+    <button class="btn btn-primary" disabled style="opacity:0.4;cursor:default">+ Log a moment</button>
+    <button class="btn btn-outline" disabled style="opacity:0.4;cursor:default">Insights</button>
+  </div>
+  <div class="recent-section">
+    <div class="section-title">Recent</div>
+    <div class="decoy-empty">
+      <div class="decoy-empty-icon">📖</div>
+      <div class="decoy-empty-text">Nothing logged yet.<br>Your journal is empty.</div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="screen" id="dashboard">
+  <div class="dash-top">
+    <div class="dash-date" id="dashDate"></div>
+    <div class="dash-title" id="dashTitle">Reflect</div>
+    <div class="dash-subtitle">Your private space</div>
+  </div>
+  <div class="stat-row">
+    <div class="scard"><div class="sl">This Week</div><div class="sv purple" id="statWeek">0</div></div>
+    <div class="scard"><div class="sl">Held Back</div><div class="sv green" id="statHeld">0</div></div>
+    <div class="scard"><div class="sl">Time Lost</div><div class="sv red" id="statHours">0h</div></div>
+  </div>
+  <div class="streak-banner" id="streakBanner">
+    <div class="sb-left">Consecutive held back</div>
+    <div class="sb-num" id="streakNum">0</div>
+  </div>
+  <div id="pendingSection" style="display:none">
+    <div class="pending-section">
+      <div class="pending-title"><div class="pending-dot"></div>Awaiting follow-up</div>
+      <div id="pendingList"></div>
+    </div>
+  </div>
+  <div class="dash-actions">
+    <button class="btn btn-primary" onclick="goTo('logScreen')">+ Log a moment</button>
+    <button class="btn btn-outline" onclick="goTo('insightsScreen')">Insights</button>
+  </div>
+  <div class="recent-section">
+    <div class="section-title">Recent</div>
+    <div id="recentList"></div>
+  </div>
+</div>
+
+<!-- LOG SCREEN -->
+<div class="screen" id="logScreen">
+  <div class="log-top">
+    <button class="back-btn" onclick="goTo('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>Back
+    </button>
+    <div class="log-title">Log a moment</div>
+    <div class="log-sub" id="logTime"></div>
+  </div>
+  <div class="log-body">
+    <div class="field-block">
+      <div class="field-label">What triggered it? <span style="color:var(--muted2);font-size:9px;margin-left:4px">LONG PRESS TO EDIT</span></div>
+      <div class="chips-wrap" id="triggerChips"></div>
+      <input class="custom-input" id="customTrigger" placeholder="Describe your own trigger..." maxlength="100">
+    </div>
+    <div class="field-block">
+      <div class="field-label">Intensity (1–10)</div>
+      <div class="intensity-row">
+        <input type="range" min="1" max="10" value="5" class="intensity-slider" id="intensitySlider" oninput="updateIntensity()">
+        <div class="intensity-val" id="intensityVal">5</div>
+      </div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">What happened?</div>
+      <div class="outcome-cards">
+        <div class="outcome-card held" id="cardHeld" onclick="selectOutcome('held')">
+          <div class="oc-icon">✊</div>
+          <div class="oc-label">Held back</div>
+          <div class="oc-sub">Protected your energy</div>
+        </div>
+        <div class="outcome-card healthy" id="cardHealthy" onclick="selectOutcome('healthy')">
+          <div class="oc-icon">🤝</div>
+          <div class="oc-label">Healthy</div>
+          <div class="oc-sub">Interacted, no regret</div>
+        </div>
+        <div class="outcome-card over" id="cardOver" onclick="selectOutcome('over')">
+          <div class="oc-icon">⚡</div>
+          <div class="oc-label">Overstepped</div>
+          <div class="oc-sub">More than needed</div>
+        </div>
+      </div>
+    </div>
+    <div class="field-block" id="redirectBlock">
+      <div class="field-label">What did you do instead?</div>
+      <div class="chips-wrap" id="redirectChips"></div>
+      <input class="custom-input" id="customRedirect" placeholder="What did you redirect to?" maxlength="80">
+    </div>
+    <div class="field-block">
+      <div class="field-label">How do you feel about it right now?</div>
+      <div class="feeling-btns">
+        <div class="feeling-btn worse" id="feelWorse" onclick="selectFeeling('worse')">😔<br>Regret</div>
+        <div class="feeling-btn same" id="feelSame" onclick="selectFeeling('same')">😐<br>Neutral</div>
+        <div class="feeling-btn better" id="feelBetter" onclick="selectFeeling('better')">🙂<br>Fine</div>
+      </div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Private note (optional)</div>
+      <textarea class="custom-input" id="privateNote" placeholder="What were you thinking? No one will ever see this..." maxlength="300"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="saveEntry()">Save</button>
+    <button class="btn btn-outline" style="margin-top:10px" onclick="goTo('dashboard')">Cancel</button>
+  </div>
+</div>
+
+<!-- FOLLOW-UP SCREEN -->
+<div class="screen" id="followupScreen">
+  <div class="log-top">
+    <button class="back-btn" onclick="goTo('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>Back
+    </button>
+    <div class="log-title">Follow-up</div>
+    <div class="log-sub" id="followupTrigger"></div>
+  </div>
+  <div class="log-body">
+    <div class="field-block">
+      <div class="field-label">What happened?</div>
+      <div class="outcome-chips" id="outcomeChips"></div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">How did you feel after?</div>
+      <div class="feeling-btns">
+        <div class="feeling-btn worse" id="fuWorse" onclick="selectFuFeeling('worse')">😔<br>Worse</div>
+        <div class="feeling-btn same" id="fuSame" onclick="selectFuFeeling('same')">😐<br>Same</div>
+        <div class="feeling-btn better" id="fuBetter" onclick="selectFuFeeling('better')">🙂<br>Better</div>
+      </div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Time this took from me (hours)</div>
+      <input type="number" class="hours-input" id="hoursInput" placeholder="0" min="0" max="24" step="0.5">
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">Optional — becomes your cost tracker over time</div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">One honest note</div>
+      <textarea class="custom-input" id="followupNote" placeholder="What did acting on it actually give you?" maxlength="200"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="saveFollowup()">Save follow-up</button>
+    <button class="btn btn-outline" style="margin-top:10px" onclick="goTo('dashboard')">Later</button>
+  </div>
+</div>
+
+<!-- INSIGHTS SCREEN -->
+<div class="screen" id="insightsScreen">
+  <div class="log-top">
+    <button class="back-btn" onclick="goTo('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>Back
+    </button>
+    <div class="log-title">Insights</div>
+    <div class="log-sub">Only you see this</div>
+  </div>
+  <div class="insights-body">
+    <div class="ins-tabs">
+      <div class="ins-tab active" onclick="switchInsTab('overview')">Overview</div>
+      <div class="ins-tab" onclick="switchInsTab('timeline')">10 Days</div>
+      <div class="ins-tab" onclick="switchInsTab('patterns')">Patterns</div>
+      <div class="ins-tab" onclick="switchInsTab('evidence')">Evidence</div>
+      <div class="ins-tab" onclick="switchInsTab('sunday')">Reviews</div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="ins-panel active" id="ins-overview">
+      <div class="ins-section">
+        <div class="ins-stat-grid" id="overviewStats"></div>
+      </div>
+      <div class="ins-section">
+        <div class="ins-title">8-Week Trend</div>
+        <div class="trend-chart" id="trendChart"></div>
+        <div class="trend-labels" id="trendLabels"></div>
+      </div>
+      <div class="ins-section">
+        <div class="ins-title">Time of Day</div>
+        <div class="tod-grid" id="todGrid"></div>
+      </div>
+      <div class="ins-section">
+        <div class="ins-title">Redirect habits</div>
+        <div id="redirectList"></div>
+        <div id="redirectEmpty" style="font-size:13px;color:var(--muted);display:none">No redirects logged yet.</div>
+      </div>
+    </div>
+
+    <!-- 10-DAY TIMELINE -->
+    <div class="ins-panel" id="ins-timeline">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.7">Every moment logged in the last 10 days. This is your mirror.</div>
+      <div id="timelineList"></div>
+    </div>
+
+    <!-- PATTERNS -->
+    <div class="ins-panel" id="ins-patterns">
+      <div class="ins-section">
+        <div class="ins-title">Trigger → Outcome</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">For each trigger, how often did you hold back?</div>
+        <div id="triggerBreakdown"></div>
+      </div>
+      <div class="ins-section">
+        <div class="ins-title">Key patterns</div>
+        <div id="patternCards"></div>
+      </div>
+      <div class="ins-section" id="recipSection">
+        <div class="ins-title">Reciprocity</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">How often help given was acknowledged or returned.</div>
+        <div id="recipCard"></div>
+      </div>
+    </div>
+
+    <!-- EVIDENCE LOG -->
+    <div class="ins-panel" id="ins-evidence">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;line-height:1.7">The times you overstepped and how it felt. Read this when the urge is strong.</div>
+      <div class="cost-card" style="margin-bottom:16px">
+        <div class="cost-hours" id="totalHours">0</div>
+        <div class="cost-label">hours this has taken from you</div>
+        <div class="cost-sub" id="costSub"></div>
+      </div>
+      <div id="evidenceList"></div>
+      <div id="evidenceEmpty" style="font-size:13px;color:var(--muted);display:none;text-align:center;padding:20px">No overstepped entries yet.<br>Keep going.</div>
+    </div>
+
+    <!-- SUNDAY REVIEWS -->
+    <div class="ins-panel" id="ins-sunday">
+      <div id="sundayList"></div>
+      <button class="btn btn-outline" style="margin-top:10px" onclick="openSundayReview()">Write this week's review</button>
+    </div>
+
+    <div class="danger-zone">
+      <div class="danger-title">Data</div>
+      <button class="btn btn-danger" onclick="confirmWipe()">Wipe all data</button>
+    </div>
+  </div>
+</div>
+
+<!-- FOLLOWUP MODAL -->
+<div class="modal-overlay" id="followupModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Ready to follow up?</div>
+    <div class="modal-sub" id="modalTriggerText"></div>
+    <button class="btn btn-primary" onclick="openFollowup()" style="margin-bottom:10px">Add follow-up now</button>
+    <button class="btn btn-outline" onclick="closeModal('followupModal')">Not yet</button>
+  </div>
+</div>
+
+<!-- SUNDAY REVIEW MODAL -->
+<div class="confirm-overlay" id="sundayModal">
+  <div class="sunday-modal-box">
+    <div class="modal-handle" style="margin:0 auto 16px"></div>
+    <div style="font-family:var(--serif);font-size:22px;font-weight:300;margin-bottom:4px">Sunday Review</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Four honest questions.</div>
+    <div class="field-block">
+      <div class="field-label">Did this week feel easier than last?</div>
+      <div class="feeling-btns">
+        <div class="feeling-btn worse" id="sunE1" onclick="selectSunday('easier','no')">No</div>
+        <div class="feeling-btn same" id="sunE2" onclick="selectSunday('easier','same')">Same</div>
+        <div class="feeling-btn better" id="sunE3" onclick="selectSunday('easier','yes')">Yes</div>
+      </div>
+    </div>
+    <div class="field-block" style="margin-top:16px">
+      <div class="field-label">Hardest moment this week</div>
+      <textarea class="custom-input" id="sundayHard" placeholder="What tested you most?" maxlength="200" style="min-height:60px"></textarea>
+    </div>
+    <div class="field-block">
+      <div class="field-label">One thing I'm proud of</div>
+      <textarea class="custom-input" id="sundayProud" placeholder="Even something small..." maxlength="200" style="min-height:60px"></textarea>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Did I show up for myself the way I show up for her?</div>
+      <div class="feeling-btns">
+        <div class="feeling-btn worse" id="sunS1" onclick="selectSunday('self','no')">No</div>
+        <div class="feeling-btn same" id="sunS2" onclick="selectSunday('self','sometimes')">Sometimes</div>
+        <div class="feeling-btn better" id="sunS3" onclick="selectSunday('self','yes')">Yes</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="cbtn cbtn-cancel" onclick="closeModal('sundayModal')">Cancel</button>
+      <button class="cbtn" style="background:var(--accent);color:#000" onclick="saveSundayReview()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHIP MANAGER MODAL -->
+<div class="confirm-overlay" id="chipModal">
+  <div class="chip-manager">
+    <div class="cm-title" id="chipModalTitle">Edit triggers</div>
+    <div class="chips-wrap" id="chipManagerList"></div>
+    <div class="cm-input-row">
+      <input class="cm-input" id="chipNewInput" placeholder="Add new..." maxlength="40">
+      <button class="cm-add-btn" onclick="addChipFromModal()">Add</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="cbtn cbtn-cancel" onclick="closeModal('chipModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- WIPE CONFIRM + PIN -->
+<div class="confirm-overlay" id="wipePinModal">
+  <div class="wipe-pin-box">
+    <div style="font-family:var(--serif);font-size:20px;font-weight:300;margin-bottom:6px">Confirm with PIN</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Enter your PIN to permanently delete all data</div>
+    <div class="wipe-pin-dots">
+      <div class="wpdot" id="w0"></div><div class="wpdot" id="w1"></div><div class="wpdot" id="w2"></div>
+      <div class="wpdot" id="w3"></div><div class="wpdot" id="w4"></div><div class="wpdot" id="w5"></div>
+    </div>
+    <div class="wipe-numpad">
+      <button class="wnk" onclick="wipeNp('1')">1</button><button class="wnk" onclick="wipeNp('2')">2</button><button class="wnk" onclick="wipeNp('3')">3</button>
+      <button class="wnk" onclick="wipeNp('4')">4</button><button class="wnk" onclick="wipeNp('5')">5</button><button class="wnk" onclick="wipeNp('6')">6</button>
+      <button class="wnk" onclick="wipeNp('7')">7</button><button class="wnk" onclick="wipeNp('8')">8</button><button class="wnk" onclick="wipeNp('9')">9</button>
+      <button class="wnk ghost"></button><button class="wnk" onclick="wipeNp('0')">0</button><button class="wnk del" onclick="wipeNd()">⌫</button>
+    </div>
+    <div class="pin-msg" id="wipePinMsg" style="margin-top:12px"></div>
+    <button class="cbtn cbtn-cancel" style="width:100%;margin-top:14px" onclick="closeModal('wipePinModal')">Cancel</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS & DEFAULTS
+// ============================================================
+const DEFAULT_TRIGGERS=[
+  "Saw them together","Urge to message","Asked for help",
+  "Late night thoughts","Random thought at work","Being ignored",
+  "Feeling lonely","Free time / bored","After a hard day"
+];
+const DEFAULT_REDIRECTS=[
+  "Read / studied","Went for a walk","Worked on cases",
+  "Called a friend","Gym / exercise","Slept early","Watched something"
+];
+const DEFAULT_OUTCOMES=[
+  "Didn't reply","Replied coldly","Replied normally",
+  "Replied warmly","Asked for help again","Made it awkward"
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let pin1=localStorage.getItem("rf_pin1")||"";
+let pin2=localStorage.getItem("rf_pin2")||"";
+let entries=JSON.parse(localStorage.getItem("rf_entries")||"[]");
+let sundays=JSON.parse(localStorage.getItem("rf_sundays")||"[]");
+let customTriggers=JSON.parse(localStorage.getItem("rf_triggers")||JSON.stringify(DEFAULT_TRIGGERS));
+let customRedirects=JSON.parse(localStorage.getItem("rf_redirects")||JSON.stringify(DEFAULT_REDIRECTS));
+let customOutcomes=JSON.parse(localStorage.getItem("rf_outcomes")||JSON.stringify(DEFAULT_OUTCOMES));
+
+let phase="", buf="", temp1="", temp2="";
+let activeFollowupEntry=null;
+let selectedOutcome="", selectedFeeling="", selectedFuFeeling="", selectedFuOutcome="";
+let selectedSunEasier="", selectedSunSelf="";
+let editingChipType=""; // 'trigger'|'redirect'|'outcome'
+let wipeBuf="";
+let inactivityTimer=null;
+let isDecoy=false;
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener("DOMContentLoaded",()=>{
+  if(!pin1){
+    phase="create1";
+    setStep("Create your first PIN","Step 1 of 2 — Primary PIN");
+    document.getElementById("pinHint").textContent="This is your real PIN — always use this";
+  } else if(!pin2){
+    phase="create2";
+    setStep("Now set a decoy PIN","Step 2 of 2 — Decoy PIN");
+    document.getElementById("pinHint").textContent="Decoy PIN shows an empty journal — use if someone asks to see your app";
+  } else {
+    phase="enter";
+    setStep("Enter your PIN","");
+    document.getElementById("pinHint").textContent="";
+  }
+  buildChips();
+  updateDash();
+  buildInsights();
+  resetInactivity();
+});
+
+document.addEventListener("visibilitychange",()=>{ if(document.hidden) lock(); });
+document.addEventListener("touchstart", resetInactivity);
+document.addEventListener("click", resetInactivity);
+
+// long press on title = instant lock
+let titlePressTimer=null;
+function attachTitleLongPress(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.addEventListener("touchstart",()=>{ titlePressTimer=setTimeout(()=>lock(),600); });
+  el.addEventListener("touchend",()=>clearTimeout(titlePressTimer));
+  el.addEventListener("mousedown",()=>{ titlePressTimer=setTimeout(()=>lock(),600); });
+  el.addEventListener("mouseup",()=>clearTimeout(titlePressTimer));
+}
+attachTitleLongPress("dashTitle");
+attachTitleLongPress("decoyTitle");
+attachTitleLongPress("pinLogo");
+
+function resetInactivity(){
+  clearTimeout(inactivityTimer);
+  inactivityTimer=setTimeout(()=>lock(), 2*60*1000);
+}
+
+// ============================================================
+// PIN
+// ============================================================
+function setStep(hint, step){
+  document.getElementById("pinHint").textContent=hint;
+  document.getElementById("pinStep").textContent=step;
+}
+function np(d){ if(buf.length>=6)return; buf+=d; pinDots(buf.length); if(buf.length===6) setTimeout(processPin,180); }
+function nd(){ if(!buf.length)return; buf=buf.slice(0,-1); pinDots(buf.length); }
+function pinDots(n){
+  for(let i=0;i<6;i++){
+    const el=document.getElementById("d"+i);
+    el.classList.remove("on","on2","err");
+    if(i<n) el.classList.add(phase==="create2"||phase==="confirm2"?"on2":"on");
+  }
+}
+function clearPinDots(){ buf=""; pinDots(0); }
+function errPinDots(){ for(let i=0;i<6;i++) document.getElementById("d"+i).classList.add("err"); buf=""; }
+
+function processPin(){
+  switch(phase){
+    case "create1":
+      temp1=buf; clearPinDots();
+      phase="confirm1";
+      setStep("Confirm your first PIN","Step 1 of 2 — Confirm Primary PIN");
+      break;
+    case "confirm1":
+      if(buf===temp1){
+        pin1=buf; localStorage.setItem("rf_pin1",pin1);
+        clearPinDots(); phase="create2";
+        setStep("Now set a decoy PIN","Step 2 of 2 — Decoy PIN");
+        document.getElementById("pinHint").textContent="If someone pressures you, enter this — they'll see an empty journal";
+        document.getElementById("pinStep").style.color="var(--green)";
+        setTimeout(()=>document.getElementById("pinStep").style.color="var(--accent)",1000);
+      } else {
+        pinErr("PINs don't match"); clearPinDots();
+        phase="create1"; setStep("Create your first PIN again","Step 1 of 2 — Primary PIN");
+      }
+      break;
+    case "create2":
+      if(buf===pin1){ pinErr("Must be different from your real PIN"); clearPinDots(); return; }
+      temp2=buf; clearPinDots();
+      phase="confirm2";
+      setStep("Confirm your decoy PIN","Step 2 of 2 — Confirm Decoy PIN");
+      break;
+    case "confirm2":
+      if(buf===temp2){
+        pin2=buf; localStorage.setItem("rf_pin2",pin2);
+        clearPinDots(); isDecoy=false;
+        goTo("dashboard");
+      } else {
+        pinErr("PINs don't match"); clearPinDots();
+        phase="create2"; setStep("Create decoy PIN again","Step 2 of 2 — Decoy PIN");
+      }
+      break;
+    case "enter":
+      if(buf===pin1){
+        clearPinDots(); isDecoy=false; goTo("dashboard");
+      } else if(buf===pin2){
+        clearPinDots(); isDecoy=true; goTo("decoyScreen");
+        document.getElementById("decoyDate").textContent=new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}).toUpperCase();
+      } else {
+        pinErr("Incorrect PIN"); errPinDots();
+        setTimeout(()=>clearPinDots(),700);
+      }
+      break;
+  }
+}
+
+function pinErr(m){
+  const el=document.getElementById("pinMsg");
+  el.textContent=m; el.classList.add("show");
+  setTimeout(()=>el.classList.remove("show"),2500);
+}
+function lock(){
+  buf=""; pinDots(0);
+  if(pin1){ phase="enter"; setStep("",""); document.getElementById("pinHint").textContent=""; }
+  goTo("pinScreen");
+}
+
+// ============================================================
+// WIPE PIN
+// ============================================================
+function wipeNp(d){
+  if(wipeBuf.length>=6)return;
+  wipeBuf+=d; wipeDots(wipeBuf.length);
+  if(wipeBuf.length===6) setTimeout(processWipePin,180);
+}
+function wipeNd(){ if(!wipeBuf.length)return; wipeBuf=wipeBuf.slice(0,-1); wipeDots(wipeBuf.length); }
+function wipeDots(n){ for(let i=0;i<6;i++) document.getElementById("w"+i).classList.toggle("on",i<n); }
+function processWipePin(){
+  if(wipeBuf===pin1){
+    wipeAll();
+  } else {
+    const el=document.getElementById("wipePinMsg");
+    el.textContent="Incorrect PIN"; el.classList.add("show");
+    for(let i=0;i<6;i++) document.getElementById("w"+i).classList.add("err");
+    wipeBuf="";
+    setTimeout(()=>{ wipeDots(0); for(let i=0;i<6;i++) document.getElementById("w"+i).classList.remove("err","on"); el.classList.remove("show"); },800);
+  }
+}
+function confirmWipe(){
+  wipeBuf=""; wipeDots(0);
+  document.getElementById("wipePinModal").classList.add("show");
+}
+function wipeAll(){
+  localStorage.removeItem("rf_entries");
+  localStorage.removeItem("rf_sundays");
+  entries=[]; sundays=[];
+  closeModal("wipePinModal");
+  updateDash(); buildInsights();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goTo(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  const el=document.getElementById(id); el.classList.add("active"); el.scrollTop=0;
+  if(id==="logScreen") initLog();
+  if(id==="insightsScreen") buildInsights();
+  if(id==="dashboard") updateDash();
+}
+
+// ============================================================
+// CHIP SYSTEM
+// ============================================================
+function buildChips(){
+  renderChips("triggerChips", customTriggers, "trigger");
+  renderChips("redirectChips", customRedirects, "redirect");
+  renderOutcomeChips();
+}
+
+function renderChips(containerId, list, type){
+  const c=document.getElementById(containerId); if(!c) return;
+  c.innerHTML="";
+  list.forEach(t=>{
+    const chip=document.createElement("div"); chip.className="chip"; chip.textContent=t;
+    chip.onclick=()=>chip.classList.toggle("selected");
+    c.appendChild(chip);
+  });
+  // manage button
+  const mgr=document.createElement("div"); mgr.className="chip chip-add"; mgr.textContent="⚙ Edit";
+  mgr.onclick=()=>openChipManager(type);
+  c.appendChild(mgr);
+}
+
+function renderOutcomeChips(){
+  const oc=document.getElementById("outcomeChips"); if(!oc) return;
+  oc.innerHTML="";
+  customOutcomes.forEach(o=>{
+    const c=document.createElement("div"); c.className="outcome-chip"; c.textContent=o;
+    c.onclick=()=>{
+      document.querySelectorAll(".outcome-chip").forEach(x=>x.classList.remove("selected"));
+      c.classList.add("selected"); selectedFuOutcome=o;
+    };
+    oc.appendChild(c);
+  });
+}
+
+function openChipManager(type){
+  editingChipType=type;
+  const titles={trigger:"Edit Triggers",redirect:"Edit Redirects",outcome:"Edit Outcomes"};
+  document.getElementById("chipModalTitle").textContent=titles[type];
+  const list=type==="trigger"?customTriggers:type==="redirect"?customRedirects:customOutcomes;
+  const container=document.getElementById("chipManagerList"); container.innerHTML="";
+  list.forEach((item,idx)=>{
+    const chip=document.createElement("div"); chip.className="chip deletable"; chip.textContent=item;
+    const del=document.createElement("span"); del.className="chip-del"; del.textContent="×";
+    del.onclick=(e)=>{ e.stopPropagation(); removeChip(type,idx); };
+    chip.appendChild(del);
+    container.appendChild(chip);
+  });
+  document.getElementById("chipNewInput").value="";
+  document.getElementById("chipModal").classList.add("show");
+}
+
+function removeChip(type,idx){
+  const list=type==="trigger"?customTriggers:type==="redirect"?customRedirects:customOutcomes;
+  list.splice(idx,1);
+  saveChips(type);
+  openChipManager(type);
+  buildChips();
+}
+
+function addChipFromModal(){
+  const val=document.getElementById("chipNewInput").value.trim();
+  if(!val) return;
+  const list=editingChipType==="trigger"?customTriggers:editingChipType==="redirect"?customRedirects:customOutcomes;
+  if(list.includes(val)) return;
+  list.push(val);
+  saveChips(editingChipType);
+  openChipManager(editingChipType);
+  buildChips();
+  document.getElementById("chipNewInput").value="";
+}
+
+function saveChips(type){
+  if(type==="trigger") localStorage.setItem("rf_triggers",JSON.stringify(customTriggers));
+  else if(type==="redirect") localStorage.setItem("rf_redirects",JSON.stringify(customRedirects));
+  else localStorage.setItem("rf_outcomes",JSON.stringify(customOutcomes));
+}
+
+// ============================================================
+// LOG SCREEN
+// ============================================================
+function initLog(){
+  const now=new Date();
+  document.getElementById("logTime").textContent=now.toLocaleString("en-IN",{weekday:"long",hour:"2-digit",minute:"2-digit"});
+  document.querySelectorAll("#triggerChips .chip, #redirectChips .chip").forEach(c=>c.classList.remove("selected"));
+  document.getElementById("customTrigger").value="";
+  document.getElementById("privateNote").value="";
+  document.getElementById("customRedirect").value="";
+  document.getElementById("intensitySlider").value=5;
+  document.getElementById("intensityVal").textContent="5";
+  selectedOutcome=""; selectedFeeling="";
+  ["cardHeld","cardHealthy","cardOver"].forEach(id=>document.getElementById(id).classList.remove("selected"));
+  ["feelWorse","feelSame","feelBetter"].forEach(id=>{
+    const el=document.getElementById(id);
+    el.classList.remove("selected");
+  });
+  document.getElementById("feelWorse").classList.add("worse");
+  document.getElementById("feelSame").classList.add("same");
+  document.getElementById("feelBetter").classList.add("better");
+  document.getElementById("redirectBlock").style.display="none";
+}
+
+function updateIntensity(){
+  document.getElementById("intensityVal").textContent=document.getElementById("intensitySlider").value;
+}
+
+function selectOutcome(o){
+  selectedOutcome=o;
+  ["held","healthy","over"].forEach(x=>document.getElementById("card"+x.charAt(0).toUpperCase()+x.slice(1)).classList.remove("selected"));
+  document.getElementById("card"+o.charAt(0).toUpperCase()+o.slice(1)).classList.add("selected");
+  document.getElementById("redirectBlock").style.display=o==="held"?"block":"none";
+}
+
+function selectFeeling(f){
+  selectedFeeling=f;
+  ["worse","same","better"].forEach(x=>{
+    const el=document.getElementById("feel"+x.charAt(0).toUpperCase()+x.slice(1));
+    el.classList.toggle("selected",x===f);
+  });
+}
+
+function saveEntry(){
+  const selectedTriggers=[...document.querySelectorAll("#triggerChips .chip.selected")].map(c=>c.textContent);
+  const customT=document.getElementById("customTrigger").value.trim();
+  const trigger=[...selectedTriggers,customT].filter(Boolean).join(", ")||"Unspecified";
+  if(!selectedOutcome){alert("Please select what happened");return;}
+  const intensity=+document.getElementById("intensitySlider").value;
+  const note=document.getElementById("privateNote").value.trim();
+  let redirect="";
+  if(selectedOutcome==="held"){
+    const rs=[...document.querySelectorAll("#redirectChips .chip.selected")].map(c=>c.textContent);
+    const cr=document.getElementById("customRedirect").value.trim();
+    redirect=[...rs,cr].filter(Boolean).join(", ");
+  }
+  const entry={
+    id:Date.now().toString(),
+    ts:new Date().toISOString(),
+    trigger, intensity, outcome:selectedOutcome,
+    feeling:selectedFeeling,
+    redirect, note,
+    followup:null
+  };
+  entries.unshift(entry);
+  save();
+  goTo("dashboard");
+}
+
+// ============================================================
+// FOLLOW-UP
+// ============================================================
+function openPendingModal(id){
+  const e=entries.find(x=>x.id===id); if(!e) return;
+  activeFollowupEntry=e;
+  document.getElementById("modalTriggerText").textContent=`"${e.trigger}" — ${fmtTime(e.ts)}`;
+  document.getElementById("followupModal").classList.add("show");
+}
+
+function openFollowup(){
+  closeModal("followupModal");
+  if(!activeFollowupEntry) return;
+  document.getElementById("followupTrigger").textContent=`"${activeFollowupEntry.trigger}"`;
+  document.getElementById("hoursInput").value="";
+  document.getElementById("followupNote").value="";
+  selectedFuFeeling=""; selectedFuOutcome="";
+  ["fuWorse","fuSame","fuBetter"].forEach(id=>{
+    const el=document.getElementById(id); el.classList.remove("selected");
+  });
+  document.getElementById("fuWorse").classList.add("worse");
+  document.getElementById("fuSame").classList.add("same");
+  document.getElementById("fuBetter").classList.add("better");
+  document.querySelectorAll(".outcome-chip").forEach(c=>c.classList.remove("selected"));
+  goTo("followupScreen");
+}
+
+function selectFuFeeling(f){
+  selectedFuFeeling=f;
+  ["worse","same","better"].forEach(x=>{
+    const el=document.getElementById("fu"+x.charAt(0).toUpperCase()+x.slice(1));
+    el.classList.toggle("selected",x===f);
+  });
+}
+
+function saveFollowup(){
+  if(!activeFollowupEntry) return;
+  const hours=parseFloat(document.getElementById("hoursInput").value)||0;
+  const note=document.getElementById("followupNote").value.trim();
+  activeFollowupEntry.followup={
+    ts:new Date().toISOString(),
+    outcome:selectedFuOutcome,
+    feeling:selectedFuFeeling,
+    hours, note
+  };
+  save();
+  activeFollowupEntry=null;
+  goTo("dashboard");
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function updateDash(){
+  const now=new Date();
+  document.getElementById("dashDate").textContent=now.toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}).toUpperCase();
+  const weekAgo=new Date(now-7*86400000);
+  const weekEntries=entries.filter(e=>new Date(e.ts)>=weekAgo);
+  document.getElementById("statWeek").textContent=weekEntries.length;
+  document.getElementById("statHeld").textContent=weekEntries.filter(e=>e.outcome==="held").length;
+  const totalHours=entries.filter(e=>e.followup&&e.followup.hours).reduce((s,e)=>s+e.followup.hours,0);
+  document.getElementById("statHours").textContent=(totalHours%1===0?totalHours:totalHours.toFixed(1))+"h";
+
+  // resistance streak (consecutive held from most recent)
+  let streak=0;
+  for(const e of entries){ if(e.outcome==="held") streak++; else break; }
+  const sb=document.getElementById("streakBanner");
+  if(streak>=3){ sb.classList.add("show"); document.getElementById("streakNum").textContent=streak; }
+  else { sb.classList.remove("show"); }
+
+  // pending follow-ups
+  const pending=entries.filter(e=>e.outcome==="over"&&!e.followup);
+  const ps=document.getElementById("pendingSection");
+  const pl=document.getElementById("pendingList"); pl.innerHTML="";
+  if(pending.length>0){
+    ps.style.display="block";
+    pending.slice(0,3).forEach(e=>{
+      const d=document.createElement("div"); d.className="pending-item";
+      const hoursAgo=Math.round((new Date()-new Date(e.ts))/3600000);
+      const overdue=hoursAgo>=6;
+      d.innerHTML=`<div class="pi-trigger">${e.trigger}</div><div class="pi-time">${fmtTime(e.ts)}</div>${overdue?`<div class="pi-overdue">⚠ ${hoursAgo}h ago — follow up when ready</div>`:""}`;
+      d.onclick=()=>openPendingModal(e.id);
+      pl.appendChild(d);
+    });
+  } else { ps.style.display="none"; }
+
+  // recent
+  const rl=document.getElementById("recentList"); rl.innerHTML="";
+  if(!entries.length){
+    rl.innerHTML=`<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">No entries yet.<br>Log your first moment when you feel it.</div>`;
+    return;
+  }
+  entries.slice(0,8).forEach(e=>{
+    const d=document.createElement("div"); d.className="entry-item";
+    const {cls,label}=outcomeMeta(e.outcome, e.followup);
+    d.innerHTML=`
+      <div class="entry-top">
+        <div class="entry-trigger">${e.trigger}</div>
+        <div class="entry-badge ${cls}">${label}</div>
+      </div>
+      <div class="entry-bottom">
+        <div class="entry-meta">${fmtTime(e.ts)}</div>
+        <div class="entry-intensity">Intensity ${e.intensity}/10</div>
+      </div>`;
+    if(e.outcome==="over"&&!e.followup) d.onclick=()=>openPendingModal(e.id);
+    rl.appendChild(d);
+  });
+}
+
+function outcomeMeta(outcome, followup){
+  if(outcome==="held") return {cls:"badge-held",label:"Held back"};
+  if(outcome==="healthy") return {cls:"badge-healthy",label:"Healthy"};
+  if(outcome==="over"&&!followup) return {cls:"badge-pending",label:"Overstepped · follow up"};
+  if(outcome==="over"&&followup) return {cls:"badge-over",label:"Overstepped"};
+  // legacy support
+  if(outcome==="resist") return {cls:"badge-held",label:"Held back"};
+  if(outcome==="acted"&&!followup) return {cls:"badge-pending",label:"Acted · follow up"};
+  if(outcome==="acted"&&followup) return {cls:"badge-over",label:"Acted"};
+  return {cls:"badge-held",label:outcome};
+}
+
+// ============================================================
+// INSIGHTS TAB SWITCH
+// ============================================================
+function switchInsTab(tab){
+  const tabs=["overview","timeline","patterns","evidence","sunday"];
+  document.querySelectorAll(".ins-tab").forEach((t,i)=>t.classList.toggle("active",tabs[i]===tab));
+  document.querySelectorAll(".ins-panel").forEach(p=>p.classList.remove("active"));
+  document.getElementById("ins-"+tab).classList.add("active");
+}
+
+// ============================================================
+// BUILD ALL INSIGHTS
+// ============================================================
+function buildInsights(){
+  buildOverviewStats();
+  buildTrendChart();
+  buildTodGrid();
+  buildRedirectList();
+  buildTimeline();
+  buildTriggerBreakdown();
+  buildPatternCards();
+  buildReciprocity();
+  buildEvidenceLog();
+  buildSundayList();
+  buildCostCard();
+}
+
+function buildOverviewStats(){
+  const el=document.getElementById("overviewStats"); el.innerHTML="";
+  const total=entries.length;
+  const held=entries.filter(e=>e.outcome==="held"||e.outcome==="resist").length;
+  const healthy=entries.filter(e=>e.outcome==="healthy").length;
+  const over=entries.filter(e=>e.outcome==="over"||e.outcome==="acted").length;
+  const heldRate=total>0?Math.round(held/total*100):0;
+  const avgInt=total>0?(entries.reduce((s,e)=>s+e.intensity,0)/total).toFixed(1):0;
+
+  // streak
+  let streak=0; for(const e of entries){ if(e.outcome==="held") streak++; else break; }
+
+  const cards=[
+    {label:"Total logged",val:total,cls:"purple",sub:"moments recorded"},
+    {label:"Held back",val:heldRate+"%",cls:"green",sub:`${held} of ${total} moments`},
+    {label:"Healthy",val:healthy,cls:"teal",sub:"no regret interactions"},
+    {label:"Resist streak",val:streak,cls:"green",sub:"consecutive held back"},
+  ];
+  cards.forEach(({label,val,cls,sub})=>{
+    const d=document.createElement("div"); d.className="ins-stat";
+    d.innerHTML=`<div class="ist-label">${label}</div><div class="ist-val" style="color:var(--${cls})">${val}</div><div class="ist-sub">${sub}</div>`;
+    el.appendChild(d);
+  });
+}
+
+function buildTrendChart(){
+  const tc=document.getElementById("trendChart"); tc.innerHTML="";
+  const tl=document.getElementById("trendLabels"); tl.innerHTML="";
+  const weeks=[];
+  for(let w=7;w>=0;w--){
+    const start=new Date(); start.setDate(start.getDate()-w*7-6); start.setHours(0,0,0,0);
+    const end=new Date(start); end.setDate(end.getDate()+6); end.setHours(23,59,59,999);
+    const we=entries.filter(e=>{ const d=new Date(e.ts); return d>=start&&d<=end; });
+    weeks.push({
+      held:we.filter(e=>e.outcome==="held"||e.outcome==="resist").length,
+      healthy:we.filter(e=>e.outcome==="healthy").length,
+      over:we.filter(e=>e.outcome==="over"||e.outcome==="acted").length,
+      total:we.length, label:"W"+(8-w)
+    });
+  }
+  const maxW=Math.max(...weeks.map(w=>w.total),1);
+  weeks.forEach(w=>{
+    const pct=w.total/maxW*100;
+    const bar=document.createElement("div"); bar.className="tbar";
+    bar.style.height=Math.max(pct,3)+"%";
+    if(w.held>0&&w.over>0) bar.classList.add("has-mixed");
+    else if(w.held>0) bar.classList.add("has-held");
+    else if(w.healthy>0) bar.classList.add("has-healthy");
+    else if(w.over>0) bar.classList.add("has-over");
+    tc.appendChild(bar);
+    const lb=document.createElement("div"); lb.className="tlabel"; lb.textContent=w.label;
+    tl.appendChild(lb);
+  });
+}
+
+function buildTodGrid(){
+  const el=document.getElementById("todGrid"); el.innerHTML="";
+  const slots=[
+    {name:"Morning",label:"6am–12",hours:[6,7,8,9,10,11]},
+    {name:"Afternoon",label:"12pm–6",hours:[12,13,14,15,16,17]},
+    {name:"Evening",label:"6pm–10",hours:[18,19,20,21]},
+    {name:"Night",label:"10pm–6",hours:[22,23,0,1,2,3,4,5]},
+  ];
+  const counts=slots.map(s=>({...s,count:entries.filter(e=>s.hours.includes(new Date(e.ts).getHours())).length}));
+  const maxC=Math.max(...counts.map(s=>s.count),1);
+  counts.forEach(s=>{
+    const cell=document.createElement("div"); cell.className="tod-cell";
+    const pct=(s.count/maxC*100).toFixed(0);
+    const color=s.count===0?"var(--muted)":s.count===maxC?"var(--red)":"var(--accent)";
+    cell.innerHTML=`<div class="tod-name">${s.name}</div><div class="tod-count" style="color:${color}">${s.count}</div><div style="font-size:9px;color:var(--muted);margin-top:2px">${s.label}</div><div class="tod-bar" style="width:${pct}%;background:${color}"></div>`;
+    el.appendChild(cell);
+  });
+}
+
+function buildRedirectList(){
+  const map={};
+  entries.filter(e=>e.redirect).forEach(e=>{ map[e.redirect]=(map[e.redirect]||0)+1; });
+  const rl=document.getElementById("redirectList"); rl.innerHTML="";
+  const sorted=Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  if(!sorted.length){ document.getElementById("redirectEmpty").style.display="block"; return; }
+  document.getElementById("redirectEmpty").style.display="none";
+  sorted.slice(0,6).forEach(([label,count])=>{
+    const d=document.createElement("div"); d.className="redirect-item";
+    d.innerHTML=`<div class="ri-label">${label}</div><div class="ri-count">${count}×</div>`;
+    rl.appendChild(d);
+  });
+}
+
+function buildTimeline(){
+  const el=document.getElementById("timelineList"); el.innerHTML="";
+  if(!entries.length){
+    el.innerHTML=`<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">No entries yet.</div>`;
+    return;
+  }
+  // group by date, last 10 days
+  const days=[];
+  for(let i=0;i<10;i++){
+    const d=new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
+    days.push(d.toISOString().slice(0,10));
+  }
+  days.forEach(dateStr=>{
+    const dayEntries=entries.filter(e=>e.ts.slice(0,10)===dateStr);
+    const block=document.createElement("div"); block.className="day-block";
+    const dow=new Date(dateStr+"T12:00:00").toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"short"});
+    const heldC=dayEntries.filter(e=>e.outcome==="held"||e.outcome==="resist").length;
+    const overC=dayEntries.filter(e=>e.outcome==="over"||e.outcome==="acted").length;
+    const healthyC=dayEntries.filter(e=>e.outcome==="healthy").length;
+    const summaryParts=[];
+    if(heldC) summaryParts.push(`${heldC} held`);
+    if(healthyC) summaryParts.push(`${healthyC} healthy`);
+    if(overC) summaryParts.push(`${overC} over`);
+    block.innerHTML=`<div class="day-header"><div class="day-date">${dow}</div>${dayEntries.length?`<div class="day-summary">${summaryParts.join(" · ")}</div>`:""}</div>`;
+    if(!dayEntries.length){
+      const emp=document.createElement("div"); emp.className="day-empty"; emp.textContent="Nothing logged";
+      block.appendChild(emp);
+    } else {
+      dayEntries.forEach(e=>{
+        const {cls,label}=outcomeMeta(e.outcome, e.followup);
+        const time=new Date(e.ts).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+        const feelingEmoji=e.feeling==="worse"?"😔":e.feeling==="better"?"🙂":e.feeling==="same"?"😐":"";
+        const div=document.createElement("div"); div.className="day-entry";
+        div.innerHTML=`
+          <div class="de-top">
+            <div class="de-trigger">${e.trigger}</div>
+            <div class="de-time">${time}</div>
+          </div>
+          <div class="de-meta">
+            <span class="de-badge ${cls}">${label}</span>
+            <span class="de-intensity">Intensity ${e.intensity}/10</span>
+            ${feelingEmoji?`<span style="font-size:13px">${feelingEmoji}</span>`:""}
+          </div>
+          ${e.redirect?`<div class="de-redirect">→ ${e.redirect}</div>`:""}
+          ${e.note?`<div class="de-note">${e.note}</div>`:""}
+          ${e.followup?`<div class="de-followup">Follow-up: ${e.followup.outcome||"—"} ${e.followup.feeling?"· felt "+e.followup.feeling:""} ${e.followup.hours?"· "+e.followup.hours+"h":""} ${e.followup.note?`<div style="font-style:italic;margin-top:3px">"${e.followup.note}"</div>`:""}</div>`:""}`;
+        block.appendChild(div);
+      });
+    }
+    el.appendChild(block);
+  });
+}
+
+function buildTriggerBreakdown(){
+  const el=document.getElementById("triggerBreakdown"); el.innerHTML="";
+  if(!entries.length){ el.innerHTML=`<div style="font-size:13px;color:var(--muted)">No data yet.</div>`; return; }
+  const trigMap={};
+  entries.forEach(e=>{
+    const t=e.trigger||"Unspecified";
+    if(!trigMap[t]) trigMap[t]={held:0,healthy:0,over:0,total:0};
+    trigMap[t].total++;
+    if(e.outcome==="held"||e.outcome==="resist") trigMap[t].held++;
+    else if(e.outcome==="healthy") trigMap[t].healthy++;
+    else trigMap[t].over++;
+  });
+  Object.entries(trigMap).sort((a,b)=>b[1].total-a[1].total).slice(0,8).forEach(([name,counts])=>{
+    const heldPct=Math.round(counts.held/counts.total*100);
+    const overPct=Math.round(counts.over/counts.total*100);
+    const color=heldPct>=70?"var(--green)":heldPct>=40?"var(--gold)":"var(--red)";
+    const row=document.createElement("div"); row.className="trigger-row";
+    row.innerHTML=`
+      <div class="tr-name">${name} <span style="color:var(--muted);font-size:10px">(${counts.total}×)</span></div>
+      <div class="tr-bar-bg"><div class="tr-bar-fill" style="width:${heldPct}%;background:${color}"></div></div>
+      <div class="tr-pct" style="color:${color}">${heldPct}% held</div>`;
+    el.appendChild(row);
+  });
+  const note=document.createElement("div");
+  note.style.cssText="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6";
+  note.textContent="Bar shows % of times you held back for each trigger. Red triggers need more attention.";
+  el.appendChild(note);
+}
+
+function buildPatternCards(){
+  const el=document.getElementById("patternCards"); el.innerHTML="";
+  if(!entries.length) return;
+  const total=entries.length;
+  const heldRate=Math.round(entries.filter(e=>e.outcome==="held"||e.outcome==="resist").length/total*100);
+  const avgInt=(entries.reduce((s,e)=>s+e.intensity,0)/total).toFixed(1);
+  const hours=entries.map(e=>new Date(e.ts).getHours());
+  const hourCount={}; hours.forEach(h=>hourCount[h]=(hourCount[h]||0)+1);
+  const peakHour=Object.entries(hourCount).sort((a,b)=>b[1]-a[1])[0];
+
+  const withFeeling=entries.filter(e=>e.feeling);
+  const regretCount=withFeeling.filter(e=>e.feeling==="worse").length;
+  const fineCount=withFeeling.filter(e=>e.feeling==="better").length;
+
+  const oversteppedWithFu=entries.filter(e=>(e.outcome==="over"||e.outcome==="acted")&&e.followup&&e.followup.feeling);
+  const worseAfter=oversteppedWithFu.filter(e=>e.followup.feeling==="worse").length;
+  const worseRate=oversteppedWithFu.length>0?Math.round(worseAfter/oversteppedWithFu.length*100):null;
+
+  const patterns=[
+    {label:"Overall hold rate",val:`<span>${heldRate}%</span> of moments held back`},
+    {label:"Average intensity",val:`<span>${avgInt}/10</span> average urge strength`},
+    {label:"Peak risk time",val:`Urges peak around <span>${peakHour?fmtHour(+peakHour[0]):"—"}</span>`},
+    withFeeling.length?{label:"Immediate feeling",val:`Felt regret <span>${Math.round(regretCount/withFeeling.length*100)}%</span>, fine <span>${Math.round(fineCount/withFeeling.length*100)}%</span> of the time`}:null,
+    worseRate!==null?{label:"After overstepping",val:`Felt worse <span>${worseRate}%</span> of the time — the evidence is clear`}:null,
+  ].filter(Boolean);
+
+  patterns.forEach(p=>{
+    const d=document.createElement("div"); d.className="pattern-card";
+    d.innerHTML=`<div class="pattern-label">${p.label}</div><div class="pattern-val">${p.val}</div>`;
+    el.appendChild(d);
+  });
+}
+
+function buildReciprocity(){
+  // Based on followup outcomes — tracks how often things went well vs poorly
+  const fuEntries=entries.filter(e=>e.followup&&e.followup.outcome);
+  if(!fuEntries.length){
+    document.getElementById("recipCard").innerHTML=`<div style="font-size:13px;color:var(--muted)">Log follow-ups to see reciprocity patterns.</div>`;
+    return;
+  }
+  const positive=fuEntries.filter(e=>e.followup.outcome.toLowerCase().includes("warmly")||e.followup.outcome.toLowerCase().includes("normally")).length;
+  const negative=fuEntries.filter(e=>e.followup.outcome.toLowerCase().includes("coldly")||e.followup.outcome.toLowerCase().includes("awkward")||e.followup.outcome.toLowerCase().includes("didn't reply")).length;
+  const pct=Math.round(positive/fuEntries.length*100);
+  const negPct=Math.round(negative/fuEntries.length*100);
+  const el=document.getElementById("recipCard");
+  el.innerHTML=`
+    <div class="recip-card">
+      <div class="recip-row">
+        <div class="recip-label">Positive responses</div>
+        <div class="recip-val" style="color:var(--green)">${pct}%</div>
+      </div>
+      <div class="recip-row">
+        <div class="recip-label">Cold / no response</div>
+        <div class="recip-val" style="color:var(--red)">${negPct}%</div>
+      </div>
+      <div class="recip-bar-bg"><div class="recip-bar-fill" style="width:${pct}%"></div></div>
+      <div class="recip-note">Based on ${fuEntries.length} follow-up${fuEntries.length!==1?"s":""} logged. ${negPct>50?"The pattern is clear — protecting your energy is the right call.":pct>60?"More good interactions than bad — healthy connection is possible.":"A mixed picture — stay observant."}</div>
+    </div>`;
+}
+
+function buildCostCard(){
+  const totalHours=entries.filter(e=>e.followup&&e.followup.hours).reduce((s,e)=>s+e.followup.hours,0);
+  document.getElementById("totalHours").textContent=totalHours%1===0?totalHours:totalHours.toFixed(1);
+  const sub=totalHours===0?"Track time to see the real cost":
+            totalHours<5?`${totalHours}h you could have spent on yourself`:
+            totalHours<20?`That's ${(totalHours/8).toFixed(1)} full working days`:
+            `${(totalHours/24).toFixed(1)} full days of your life`;
+  document.getElementById("costSub").textContent=sub;
+}
+
+function buildEvidenceLog(){
+  const el=document.getElementById("evidenceList");
+  const emptyEl=document.getElementById("evidenceEmpty");
+  el.innerHTML="";
+  const overEntries=entries.filter(e=>e.outcome==="over"||e.outcome==="acted");
+  if(!overEntries.length){ emptyEl.style.display="block"; return; }
+  emptyEl.style.display="none";
+  overEntries.slice(0,15).forEach(e=>{
+    const feelEmoji=e.feeling==="worse"?"😔 Felt regret":e.feeling==="better"?"🙂 Felt fine":e.feeling==="same"?"😐 Felt neutral":"";
+    const fuFeel=e.followup?.feeling==="worse"?"😔 Worse after":e.followup?.feeling==="better"?"🙂 Better after":e.followup?.feeling==="same"?"😐 Same after":"";
+    const div=document.createElement("div"); div.className="evidence-item";
+    div.innerHTML=`
+      <div class="ev-trigger">${e.trigger}</div>
+      <div class="ev-meta">${fmtTime(e.ts)} · Intensity ${e.intensity}/10</div>
+      ${feelEmoji?`<div class="ev-feeling">${feelEmoji}</div>`:""}
+      ${fuFeel?`<div class="ev-feeling">${fuFeel}</div>`:""}
+      ${e.followup?.outcome?`<div style="font-size:11px;color:var(--muted);margin-top:3px">Outcome: ${e.followup.outcome}</div>`:""}
+      ${e.followup?.hours?`<div style="font-size:11px;color:var(--red);margin-top:3px">${e.followup.hours}h taken from you</div>`:""}
+      ${e.note?`<div class="ev-note">${e.note}</div>`:""}
+      ${e.followup?.note?`<div class="ev-note" style="border-color:var(--red)">${e.followup.note}</div>`:""}`;
+    el.appendChild(div);
+  });
+}
+
+function buildSundayList(){
+  const sl=document.getElementById("sundayList"); sl.innerHTML="";
+  if(!sundays.length){
+    sl.innerHTML=`<div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7">No reviews yet. Write one any time — once a week is enough.</div>`;
+    return;
+  }
+  sundays.slice(0,5).forEach(s=>{
+    const d=document.createElement("div"); d.className="sunday-card";
+    const selfEmoji=s.self==="yes"?"🙂":s.self==="no"?"😔":"😐";
+    d.innerHTML=`
+      <div class="sunday-title">${fmtDate(s.ts)}</div>
+      <div class="sunday-sub">Week felt easier: ${s.easier||"—"} · Showed up for myself: ${selfEmoji} ${s.self||"—"}</div>
+      ${s.hard?`<div class="sunday-q-label" style="margin-top:10px">Hardest moment</div><div class="sunday-past">"${s.hard}"</div>`:""}
+      ${s.proud?`<div class="sunday-q-label">Proud of</div><div class="sunday-past">"${s.proud}"</div>`:""}`;
+    sl.appendChild(d);
+  });
+}
+
+// ============================================================
+// SUNDAY REVIEW
+// ============================================================
+function openSundayReview(){
+  selectedSunEasier=""; selectedSunSelf="";
+  ["sunE1","sunE2","sunE3","sunS1","sunS2","sunS3"].forEach(id=>document.getElementById(id).classList.remove("selected"));
+  document.getElementById("sunE1").classList.add("worse");
+  document.getElementById("sunE2").classList.add("same");
+  document.getElementById("sunE3").classList.add("better");
+  document.getElementById("sunS1").classList.add("worse");
+  document.getElementById("sunS2").classList.add("same");
+  document.getElementById("sunS3").classList.add("better");
+  document.getElementById("sundayHard").value="";
+  document.getElementById("sundayProud").value="";
+  document.getElementById("sundayModal").classList.add("show");
+}
+
+function selectSunday(field, val){
+  if(field==="easier"){
+    selectedSunEasier=val;
+    document.getElementById("sunE1").classList.toggle("selected",val==="no");
+    document.getElementById("sunE2").classList.toggle("selected",val==="same");
+    document.getElementById("sunE3").classList.toggle("selected",val==="yes");
+  }
+  if(field==="self"){
+    selectedSunSelf=val;
+    document.getElementById("sunS1").classList.toggle("selected",val==="no");
+    document.getElementById("sunS2").classList.toggle("selected",val==="sometimes");
+    document.getElementById("sunS3").classList.toggle("selected",val==="yes");
+  }
+}
+
+function saveSundayReview(){
+  const hard=document.getElementById("sundayHard").value.trim();
+  const proud=document.getElementById("sundayProud").value.trim();
+  sundays.unshift({ts:new Date().toISOString(), easier:selectedSunEasier||"—", self:selectedSunSelf||"—", hard, proud});
+  localStorage.setItem("rf_sundays",JSON.stringify(sundays));
+  closeModal("sundayModal");
+  buildInsights();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function save(){ localStorage.setItem("rf_entries",JSON.stringify(entries)); }
+function closeModal(id){ document.getElementById(id).classList.remove("show"); }
+function fmtTime(ts){ const d=new Date(ts); return d.toLocaleDateString("en-IN",{day:"numeric",month:"short"})+" · "+d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}); }
+function fmtDate(ts){ return new Date(ts).toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long"}); }
+function fmtHour(h){ return h===0?"midnight":h<12?h+"am":h===12?"noon":(h-12)+"pm"; }
+</script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("/reflect/sw.js").catch(()=>{}); });
+}
+</script>
+</body>
+</html>
